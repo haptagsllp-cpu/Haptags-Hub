@@ -1,0 +1,12 @@
+<% const editing = Boolean(doc.id); %>
+<div class="crumbs"><a href="/admin/retainers">Retainers</a> / <%= editing ? doc.title : 'New' %></div>
+<div class="page-head"><div><h1><%= editing ? 'Edit retainer' : 'New retainer' %></h1><div class="sub">An invoice is created on each billing date, numbered and (optionally) emailed with a payment link.</div></div></div>
+<form method="post" action="<%= editing ? '/admin/retainers/' + doc.id : '/admin/retainers' %>" novalidate>
+  <%- include('../../partials/csrf') %>
+  <% if (doc.project_id) { %><input type="hidden" name="project_id" value="<%= doc.project_id %>"><% } %>
+  <%- include('../../partials/doc-editor', { kind: 'retainer' }) %>
+  <div class="form-actions mt-16">
+    <button class="btn btn-lg" type="submit"><%= editing ? 'Save changes' : 'Start retainer' %></button>
+    <a class="btn btn-ghost btn-lg" href="<%= editing ? '/admin/retainers/' + doc.id : '/admin/retainers' %>">Cancel</a>
+  </div>
+</form>

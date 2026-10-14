@@ -1,0 +1,105 @@
+<div class="crumbs"><a href="/admin/projects">Projects</a> / <%= project.name %></div>
+<div class="page-head">
+  <div>
+    <h1><%= project.name %> <%- h.badge(project.status) %></h1>
+    <div class="sub"><a href="/admin/clients/<%= project.client_id %>"><%= project.client_name %></a><%= project.service ? ' · ' + h.service(project.service) : '' %><%= project.due_date ? ' · due ' + h.date(project.due_date) : '' %></div>
+  </div>
+  <div class="actions">
+    <a class="btn btn-ghost" href="/admin/projects/<%= project.id %>/edit"><%- h.icon('edit', 16) %> Edit</a>
+    <a class="btn btn-ghost" href="/admin/invoices/new?client_id=<%= project.client_id %>&project_id=<%= project.id %>">Invoice</a>
+    <% if (project.status === 'completed') { %><a class="btn" href="/admin/retainers/new?client_id=<%= project.client_id %>&project_id=<%= project.id %>&title=<%= encodeURIComponent('Maintenance & support — ' + project.name) %>&item=<%= encodeURIComponent('Monthly maintenance, hosting & support — ' + project.name) %>"><%- h.icon('retainers', 16) %> Offer maintenance plan</a><% } %>
+  </div>
+</div>
+
+<div class="split">
+  <div class="stack">
+    <section class="card" id="updates">
+      <div class="card-head"><h3>Updates</h3><span class="muted small">Client-visible updates appear in their portal</span></div>
+      <div class="card-body">
+        <form method="post" action="/admin/projects/<%= project.id %>/updates" class="mb-16">
+          <%- include('../../partials/csrf') %>
+          <div class="field mb-8"><label class="sr-only" for="upd">Post an update</label><textarea id="upd" name="body" rows="3" placeholder="e.g. Homepage design is ready for review — link below."></textarea></div>
+          <div class="row">
+            <label class="check small"><input type="checkbox" name="client_visible" value="1" checked> Visible to client</label>
+            <label class="check small"><input type="checkbox" name="notify" value="1"> Email the client</label>
+            <span class="spacer" style="flex:1"></span>
+            <button class="btn btn-sm" type="submit">Post update</button>
+          </div>
+        </form>
+        <% if (!updates.length) { %><p class="muted small mb-0">No updates yet. Regular updates keep clients confident and paying on time.</p><% } else { %>
+        <ul class="timeline">
+          <% updates.forEach(function (u) { %>
+          <li class="<%= u.client_visible ? 'k-email' : '' %>"><div class="meta"><%= u.user_name || 'System' %> · <%= h.ago(u.created_at) %> · <%= u.client_visible ? 'client can see' : 'internal' %></div><div class="body"><%= u.body %></div></li>
+          <% }) %>
+        </ul><% } %>
+      </div>
+    </section>
+
+    <section class="card" id="milestones">
+      <div class="card-head"><h3>Milestones</h3><span class="muted small"><%= milestones.filter(function (m) { return m.status === 'done'; }).length %>/<%= milestones.length %> done</span></div>
+      <% milestones.forEach(function (m) { %>
+      <div class="ms <%= m.status %>">
+        <span class="dot"><% if (m.status === 'done') { %><%- h.icon('check', 12) %><% } %></span>
+        <span class="t"><%= m.title %><% if (!m.client_visible) { %> <span class="badge tone-grey">internal</span><% } %><% if (m.due_date) { %><span class="small muted"> · <%= h.date(m.due_date) %></span><% } %></span>
+        <form method="post" action="/admin/projects/<%= project.id %>/milestones/<%= m.id %>" class="row" style="flex-wrap:nowrap">
+          <%- include('../../partials/csrf') %>
+          <select name="status" data-autosubmit aria-label="Milestone status" style="width:auto;padding:5px 8px;font-size:13px">
+            <option value="todo" <%= h.selected(m.status, 'todo') %>>To do</option><option value="doing" <%= h.selected(m.status, 'doing') %>>In progress</option><option value="done" <%= h.selected(m.status, 'done') %>>Done</option>
+          </select>
+          <button class="icon-btn" name="action" value="delete" title="Delete milestone" aria-label="Delete milestone" style="color:var(--text-3)"><%- h.icon('trash', 15) %></button>
+        </form>
+      </div>
+      <% }) %>
+      <form method="post" action="/admin/projects/<%= project.id %>/milestones" class="card-body row" style="border-top:1px solid var(--border)">
+        <%- include('../../partials/csrf') %>
+        <input type="text" name="title" placeholder="New milestone" style="flex:2;min-width:160px" aria-label="Milestone title" required>
+        <input type="date" name="due_date" style="flex:1;min-width:130px" aria-label="Due date">
+        <label class="check small"><input type="checkbox" name="client_visible" value="1" checked> Client sees</label>
+        <button class="btn btn-sm" type="submit">Add</button>
+      </form>
+    </section>
+  </div>
+
+  <div class="stack">
+    <section class="card">
+      <div class="card-head"><h3>Status</h3></div>
+      <form method="post" action="/admin/projects/<%= project.id %>/status" class="card-body">
+        <%- include('../../partials/csrf') %>
+        <div class="field"><label for="pstatus">Stage</label><select id="pstatus" name="status"><% h.C.PROJECT_STATUSES.forEach(function (s) { %><option value="<%= s %>" <%= h.selected(project.status, s) %>><%= h.humanize(s) %></option><% }) %></select></div>
+        <div class="field"><label for="pprog">Progress: <%= project.progress %>%</label><input id="pprog" name="progress" type="range" min="0" max="100" step="5" value="<%= project.progress %>" style="width:100%"></div>
+        <button class="btn btn-block" type="submit">Update</button>
+      </form>
+    </section>
+
+    <section class="card" id="links">
+      <div class="card-head"><h3>Files & links</h3></div>
+      <div class="card-body">
+        <% links.forEach(function (l) { %>
+        <div class="row-between mb-8">
+          <a href="<%= l.url %>" target="_blank" rel="noopener noreferrer"><%- h.icon('link', 14) %> <%= l.label %></a>
+          <form method="post" action="/admin/projects/<%= project.id %>/links/<%= l.id %>/delete" class="inline"><%- include('../../partials/csrf') %><button class="icon-btn" aria-label="Remove link" style="color:var(--text-3)"><%- h.icon('trash', 14) %></button></form>
+        </div>
+        <% }) %>
+        <form method="post" action="/admin/projects/<%= project.id %>/links" class="mt-8">
+          <%- include('../../partials/csrf') %>
+          <div class="field mb-8"><input type="text" name="label" placeholder="Label, e.g. Figma designs" aria-label="Link label" required></div>
+          <div class="field mb-8"><input type="url" name="url" placeholder="https://drive.google.com/…" aria-label="URL" required></div>
+          <div class="row-between"><label class="check small"><input type="checkbox" name="client_visible" value="1" checked> Client sees</label><button class="btn btn-ghost btn-sm" type="submit">Add link</button></div>
+        </form>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-head"><h3>Billing</h3></div>
+      <div class="card-body">
+        <p class="small muted mb-8">Budget: <b><%= Number(project.budget) ? h.inr(project.budget) : 'not set' %></b></p>
+        <% if (!invoices.length) { %><p class="small muted mb-0">No invoices linked.</p><% } %>
+        <% invoices.forEach(function (i) { %><div class="row-between mb-8"><a class="mono small" href="/admin/invoices/<%= i.id %>"><%= i.number || 'Draft' %></a><span class="small"><%= h.inrShort(i.total) %> <%- h.badge(i.status) %></span></div><% }) %>
+      </div>
+    </section>
+
+    <% if (project.description) { %>
+    <section class="card"><div class="card-head"><h3>Scope</h3></div><div class="card-body small" style="white-space:pre-wrap"><%= project.description %></div></section>
+    <% } %>
+  </div>
+</div>

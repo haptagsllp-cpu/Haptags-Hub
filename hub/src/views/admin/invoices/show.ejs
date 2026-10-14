@@ -1,0 +1,104 @@
+<%
+  const live = !['draft', 'void'].includes(doc.status);
+  const first = (client.contact_name || client.name).split(' ')[0];
+  const waText = doc.status === 'overdue'
+    ? 'Hi ' + first + ', a gentle reminder that invoice ' + doc.number + ' (' + h.inr(balance) + ') was due on ' + h.date(doc.due_date) + '. You can pay by UPI/card here: ' + link
+    : 'Hi ' + first + ', please find invoice ' + doc.number + ' for ' + h.inr(doc.total) + ' from Haptags. View & pay: ' + link;
+  const wa = live && balance > 0 ? h.waLink(client.phone, waText) : null;
+%>
+<div class="crumbs"><a href="/admin/invoices">Invoices</a> / <%= doc.number || 'Draft #' + doc.id %></div>
+<div class="page-head">
+  <div>
+    <h1><%= doc.number || 'Draft invoice' %> <%- h.badge(doc.status) %></h1>
+    <div class="sub"><a href="/admin/clients/<%= client.id %>"><%= client.name %></a><%= doc.title ? ' · ' + doc.title : '' %><% if (project) { %> · <a href="/admin/projects/<%= project.id %>"><%= project.name %></a><% } %></div>
+  </div>
+  <div class="actions">
+    <% if (doc.status === 'draft') { %>
+      <a class="btn btn-ghost" href="/admin/invoices/<%= doc.id %>/edit"><%- h.icon('edit', 16) %> Edit</a>
+      <form method="post" action="/admin/invoices/<%= doc.id %>/issue" class="inline"><%- include('../../partials/csrf') %><button class="btn btn-ghost" type="submit">Issue</button></form>
+      <form method="post" action="/admin/invoices/<%= doc.id %>/send" class="inline"><%- include('../../partials/csrf') %><button class="btn" type="submit"><%- h.icon('send', 16) %> Issue & email</button></form>
+    <% } else if (live) { %>
+      <a class="btn btn-ghost" href="/i/<%= doc.public_token %>" target="_blank" rel="noopener"><%- h.icon('external', 16) %> Client view</a>
+      <% if (balance > 0) { %>
+        <form method="post" action="/admin/invoices/<%= doc.id %>/send" class="inline"><%- include('../../partials/csrf') %><input type="hidden" name="reminder" value="<%= doc.sent_at ? '1' : '0' %>"><button class="btn btn-ghost" type="submit"><%- h.icon('mail', 16) %> <%= doc.sent_at ? 'Email reminder' : 'Email invoice' %></button></form>
+        <% if (wa) { %><a class="btn btn-wa" href="<%= wa %>" target="_blank" rel="noopener"><%- h.icon('whatsapp', 16) %> WhatsApp</a><% } %>
+        <a class="btn" href="#payments"><%- h.icon('payments', 16) %> Record payment</a>
+      <% } %>
+    <% } %>
+  </div>
+</div>
+
+<div class="split">
+  <div>
+    <div class="table-wrap"><%- include('../../partials/document', { kind: 'invoice' }) %></div>
+  </div>
+
+  <div class="stack">
+    <% if (live) { %>
+    <section class="card">
+      <div class="card-head"><h3>Payment link</h3></div>
+      <div class="card-body">
+        <p class="small muted mb-8">The client can view, download and pay here — no login needed.</p>
+        <div class="copy-field"><input id="ilink" type="text" readonly value="<%= link %>" aria-label="Invoice link"><button class="btn btn-ghost btn-sm" data-copy="#ilink"><%- h.icon('copy', 14) %></button></div>
+        <% if (upi && balance > 0) { %><div class="mt-16 row" style="align-items:flex-start"><img class="qr" style="width:120px;height:120px" src="<%= upi.qr %>" alt="UPI QR"><span class="small muted">UPI QR for <%= h.inr(balance) %>. Clients see this on the invoice page.</span></div><% } %>
+        <% if (doc.sent_at) { %><p class="small muted mt-8 mb-0">Emailed <%= h.dateTime(doc.sent_at) %><%= doc.last_reminder_at ? ' · last reminder ' + h.dateTime(doc.last_reminder_at) : '' %></p><% } %>
+      </div>
+    </section>
+    <% } %>
+
+    <section class="card" id="payments">
+      <div class="card-head"><h3>Payments</h3><span class="small"><b><%= h.inr(doc.amount_paid) %></b> of <%= h.inr(doc.total) %></span></div>
+      <% if (payments.length) { %>
+      <ul class="list">
+        <% payments.forEach(function (p) { %>
+        <li>
+          <div class="grow">
+            <span class="title"><%= h.inr(p.amount) %><%= Number(p.tds) ? ' + TDS ' + h.inr(p.tds) : '' %></span>
+            <span class="meta"><%= h.date(p.paid_on) %> · <%= h.method(p.method) %><%= p.reference ? ' · ' + p.reference : '' %></span>
+          </div>
+          <% if (p.status === 'pending') { %>
+            <form method="post" action="/admin/payments/<%= p.id %>/status" class="row" style="flex-wrap:nowrap"><%- include('../../partials/csrf') %>
+              <button class="btn btn-success btn-sm" name="status" value="confirmed">Confirm</button><button class="btn btn-ghost btn-sm" name="status" value="rejected">Reject</button></form>
+          <% } else { %><%- h.badge(p.status) %><% } %>
+        </li>
+        <% }) %>
+      </ul>
+      <% } %>
+      <% if (live && balance > 0) { %>
+      <form method="post" action="/admin/invoices/<%= doc.id %>/payments" class="card-body" style="<%= payments.length ? 'border-top:1px solid var(--border)' : '' %>">
+        <%- include('../../partials/csrf') %>
+        <div class="form-grid">
+          <div class="field"><label for="amount">Amount received (₹)</label><input id="amount" name="amount" type="text" inputmode="decimal" value="<%= h.rupees(balance) %>" required></div>
+          <div class="field"><label for="tds">TDS deducted (₹)</label><input id="tds" name="tds" type="text" inputmode="decimal" placeholder="0"></div>
+          <div class="field"><label for="method">Method</label><select id="method" name="method"><% h.C.PAYMENT_METHODS.forEach(function (m) { %><option value="<%= m[0] %>"><%= m[1] %></option><% }) %></select></div>
+          <div class="field"><label for="paid_on">Date</label><input id="paid_on" name="paid_on" type="date" value="<%= h.today() %>"></div>
+          <div class="field full"><label for="reference">Reference (UTR / UPI ref / cheque no.)</label><input id="reference" name="reference" type="text"></div>
+        </div>
+        <label class="check small mb-16"><input type="checkbox" name="send_receipt" value="1" checked> Email a receipt to the client</label>
+        <button class="btn btn-block" type="submit">Record payment</button>
+        <p class="small muted mt-8 mb-0">If the client deducted 10% TDS, enter the cash received and the TDS separately — the invoice is settled by both.</p>
+      </form>
+      <% } else if (!payments.length) { %>
+      <div class="empty"><%= doc.status === 'draft' ? 'Issue the invoice to start collecting payment.' : 'No payments.' %></div>
+      <% } %>
+    </section>
+
+    <section class="card">
+      <div class="card-head"><h3>History</h3></div>
+      <div class="card-body"><%- include('../../partials/timeline') %></div>
+    </section>
+
+    <% if (doc.status === 'draft') { %>
+      <form method="post" action="/admin/invoices/<%= doc.id %>/delete" data-confirm="Delete this draft?"><%- include('../../partials/csrf') %><button class="btn btn-danger btn-sm" type="submit"><%- h.icon('trash', 14) %> Delete draft</button></form>
+    <% } else if (doc.status !== 'void') { %>
+      <details>
+        <summary class="small muted" style="cursor:pointer">Void this invoice…</summary>
+        <form method="post" action="/admin/invoices/<%= doc.id %>/void" class="mt-8" data-confirm="Void <%= doc.number %>? The number stays reserved and it can’t be undone.">
+          <%- include('../../partials/csrf') %>
+          <input type="text" name="reason" placeholder="Reason (e.g. wrong amount, re-issued as …)" class="mb-8" aria-label="Reason">
+          <button class="btn btn-danger btn-sm" type="submit">Void invoice</button>
+        </form>
+      </details>
+    <% } %>
+  </div>
+</div>

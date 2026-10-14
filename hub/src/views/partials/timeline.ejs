@@ -1,0 +1,12 @@
+<% if (!activities.length) { %>
+  <p class="muted small mb-0">No activity yet.</p>
+<% } else { %>
+<ul class="timeline">
+  <% activities.forEach(function (a) { %>
+  <li class="k-<%= a.kind %>">
+    <div class="meta"><%= h.humanize(a.kind) %> · <%= a.user_name || 'System' %> · <span title="<%= h.dateTime(a.created_at) %>"><%= h.ago(a.created_at) %></span></div>
+    <div class="body"><%= a.body %></div>
+  </li>
+  <% }) %>
+</ul>
+<% } %>

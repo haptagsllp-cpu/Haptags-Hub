@@ -1,0 +1,57 @@
+<div class="page-head">
+  <div><h1>Leads</h1><div class="sub">Every enquiry from the website, WhatsApp, calls and referrals.</div></div>
+  <div class="actions"><a class="btn" href="/admin/leads/new"><%- h.icon('plus', 16) %> Add lead</a></div>
+</div>
+
+<div class="stats">
+  <% h.C.LEAD_OPEN.forEach(function (st) { %>
+  <a class="stat" href="/admin/leads?status=<%= st %>" style="text-decoration:none">
+    <div class="label"><%= h.humanize(st) %></div>
+    <div class="value"><%= stages[st].n %></div>
+    <div class="delta"><%= h.inrCompact(stages[st].value) %> estimated</div>
+  </a>
+  <% }) %>
+</div>
+
+<%
+  const tabs = [['open', 'Open'], ['followup', 'Follow-ups due', followupCount], ['new', 'New'], ['contacted', 'Contacted'], ['qualified', 'Qualified'], ['proposal', 'Proposal'], ['won', 'Won'], ['lost', 'Lost'], ['all', 'All']];
+%>
+<div class="row-between">
+  <nav class="tabs" aria-label="Filter leads">
+    <% tabs.forEach(function (t) { %><a href="<%= h.qs('/admin/leads', { status: t[0], q: q, source: source }) %>" class="<%= status === t[0] ? 'active' : '' %>"><%= t[1] %><% if (t[2]) { %><span class="n"><%= t[2] %></span><% } %></a><% }) %>
+  </nav>
+  <form method="get" class="row mb-16" action="/admin/leads">
+    <input type="hidden" name="status" value="<%= status %>">
+    <select name="source" data-autosubmit aria-label="Source" style="width:auto">
+      <option value="">All sources</option>
+      <% h.C.LEAD_SOURCES.forEach(function (s) { %><option value="<%= s %>" <%= h.selected(source, s) %>><%= h.humanize(s) %></option><% }) %>
+    </select>
+    <input type="search" name="q" value="<%= q || '' %>" placeholder="Name, email, phone…" style="width:200px" aria-label="Search leads">
+  </form>
+</div>
+
+<div class="card">
+  <% if (!rows.length) { %>
+    <div class="empty"><b>No leads here</b><% if (status === 'open' && !q) { %>Connect your website form (Settings → Integrations) or add a lead by hand.<% } else { %>Try another filter.<% } %></div>
+  <% } else { %>
+  <div class="table-wrap">
+    <table class="table">
+      <thead><tr><th>Lead</th><th>Service</th><th>Budget</th><th>Source</th><th>Status</th><th>Follow-up</th><th class="num">Est. value</th></tr></thead>
+      <tbody>
+        <% rows.forEach(function (l) { const late = l.next_follow_up && l.next_follow_up <= h.today() && h.C.LEAD_OPEN.includes(l.status); %>
+        <tr>
+          <td><a class="strong" href="/admin/leads/<%= l.id %>"><%= l.name %></a><span class="sub"><%= [l.company, l.phone || l.email].filter(Boolean).join(' · ') %></span></td>
+          <td><%= h.service(l.service) || '—' %></td>
+          <td class="nowrap"><%= h.budget(l.budget) || '—' %></td>
+          <td><%= h.humanize(l.source) %><span class="sub"><%= h.ago(l.created_at) %></span></td>
+          <td><%- h.badge(l.status) %></td>
+          <td class="nowrap <%= late ? 'down' : '' %>"><%= l.next_follow_up ? h.date(l.next_follow_up) : '—' %></td>
+          <td class="num"><%= Number(l.value_estimate) ? h.inrShort(l.value_estimate) : '—' %></td>
+        </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  </div>
+  <%- include('../../partials/pager', { pagerBase: '/admin/leads', pagerQuery: { status: status, q: q, source: source } }) %>
+  <% } %>
+</div>

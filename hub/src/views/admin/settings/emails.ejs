@@ -1,0 +1,18 @@
+<div class="page-head"><div><h1>Email log</h1><div class="sub">Last 200 emails the Hub sent or tried to send.</div></div></div>
+<% if (!mailEnabled) { %><div class="flash flash-info"><%- h.icon('alert') %><span>SMTP isn’t configured, so emails are logged here but not delivered. See Settings → Integrations.</span></div><% } %>
+<div class="card">
+  <% if (!rows.length) { %><div class="empty">No emails yet.</div><% } else { %>
+  <div class="table-wrap"><table class="table">
+    <thead><tr><th>When</th><th>To</th><th>Subject</th><th>Status</th></tr></thead>
+    <tbody>
+      <% rows.forEach(function (e) { %>
+      <tr>
+        <td class="nowrap small"><%= h.dateTime(e.created_at) %></td>
+        <td class="small"><%= e.to_email %></td>
+        <td><%= e.subject %><% if (e.error) { %><span class="sub down"><%= e.error %></span><% } %></td>
+        <td><%- h.badge(e.status === 'sent' ? 'confirmed' : e.status === 'failed' ? 'rejected' : 'pending', e.status === 'sent' ? 'Sent' : e.status === 'failed' ? 'Failed' : 'Not sent') %></td>
+      </tr>
+      <% }) %>
+    </tbody>
+  </table></div><% } %>
+</div>

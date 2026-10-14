@@ -1,0 +1,13 @@
+<div class="crumbs"><a href="/admin/tickets">Support</a> / New</div>
+<div class="page-head"><h1>New ticket</h1></div>
+<form method="post" action="/admin/tickets" class="card card-pad" style="max-width:760px" novalidate>
+  <%- include('../../partials/csrf') %>
+  <div class="form-grid">
+    <div class="field"><label for="client_id">Client *</label><select id="client_id" name="client_id" <%- errors.client_id ? 'aria-invalid="true"' : '' %>><option value="">— Select —</option><% clients.forEach(function (c) { %><option value="<%= c.id %>" <%= h.selected(ticket.client_id, c.id) %>><%= c.name %></option><% }) %></select><% if (errors.client_id) { %><div class="error"><%= errors.client_id %></div><% } %></div>
+    <div class="field"><label for="project_id">Project</label><select id="project_id" name="project_id"><option value="">—</option><% projects.forEach(function (p) { %><option value="<%= p.id %>" data-client="<%= p.client_id %>" <%= h.selected(ticket.project_id, p.id) %>><%= p.name %></option><% }) %></select></div>
+    <div class="field full"><label for="subject">Subject *</label><input id="subject" name="subject" type="text" value="<%= ticket.subject || '' %>" <%- errors.subject ? 'aria-invalid="true"' : '' %>><% if (errors.subject) { %><div class="error"><%= errors.subject %></div><% } %></div>
+    <div class="field"><label for="priority">Priority</label><select id="priority" name="priority"><% h.C.TICKET_PRIORITIES.forEach(function (p) { %><option value="<%= p %>" <%= h.selected(ticket.priority, p) %>><%= h.humanize(p) %></option><% }) %></select></div>
+    <div class="field full"><label for="body">Details *</label><textarea id="body" name="body" rows="5" <%- errors.body ? 'aria-invalid="true"' : '' %>><%= ticket.body || '' %></textarea><% if (errors.body) { %><div class="error"><%= errors.body %></div><% } %></div>
+  </div>
+  <div class="form-actions"><button class="btn" type="submit">Create ticket</button><a class="btn btn-ghost" href="/admin/tickets">Cancel</a></div>
+</form>

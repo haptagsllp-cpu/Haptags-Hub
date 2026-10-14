@@ -1,0 +1,100 @@
+<%
+  const isInvoice = kind === 'invoice';
+  const s = settings;
+  const gst = doc.tax_mode !== 'none' && s.gstin;
+  const docTitle = isInvoice ? (gst ? 'Tax Invoice' : 'Invoice') : 'Quotation';
+  const rate = Number(doc.gst_rate);
+  const stateCode = (h.C.STATES.find(function (x) { return client.state && x[1].toLowerCase() === String(client.state).toLowerCase(); }) || [])[0];
+  const balance = Number(doc.total) - Number(doc.amount_paid || 0);
+  const stamp = isInvoice ? ({ paid: 'paid', void: 'void', overdue: 'overdue', draft: 'draft' })[doc.status] : ({ draft: 'draft', accepted: 'paid', declined: 'void', expired: 'void' })[doc.status];
+%>
+<article class="doc" aria-label="<%= docTitle %>">
+  <header class="doc-head">
+    <div class="org">
+      <img src="/static/img/haptags-mark.png" alt="">
+      <div>
+        <b class="org-name"><%= s.legal_name %></b><br>
+        <%= s.address %>, <%= s.city %>, <%= s.state %> <%= s.pincode %><br>
+        <%= s.email %> · <%= s.phone %><br>
+        <% if (s.gstin) { %>GSTIN: <b class="mono"><%= s.gstin %></b><br><% } %>
+        <% if (s.pan) { %>PAN: <span class="mono"><%= s.pan %></span> · <% } %><% if (s.llpin) { %>LLPIN: <span class="mono"><%= s.llpin %></span><% } %>
+      </div>
+    </div>
+    <div class="doc-title">
+      <h1><%= docTitle %></h1>
+      <dl class="dl">
+        <dt><%= isInvoice ? 'Invoice no.' : 'Quotation no.' %></dt><dd class="mono"><%= doc.number || 'DRAFT' %></dd>
+        <dt>Date</dt><dd><%= h.date(doc.issue_date) %></dd>
+        <% if (isInvoice) { %><dt>Due date</dt><dd><%= h.date(doc.due_date) %></dd><% } else if (doc.valid_until) { %><dt>Valid until</dt><dd><%= h.date(doc.valid_until) %></dd><% } %>
+      </dl>
+      <% if (stamp) { %><div class="mt-8"><span class="stamp <%= stamp %>"><%= h.humanize(doc.status) %></span></div><% } %>
+    </div>
+  </header>
+
+  <section class="doc-parties">
+    <div>
+      <h4><%= isInvoice ? 'Bill to' : 'Prepared for' %></h4>
+      <b><%= client.name %></b><br>
+      <% if (client.contact_name && client.contact_name !== client.name) { %>Attn: <%= client.contact_name %><br><% } %>
+      <% if (client.address) { %><%= client.address %><br><% } %>
+      <%= [client.city, client.state, client.pincode].filter(Boolean).join(', ') %><% if (client.country && client.country !== 'India') { %>, <%= client.country %><% } %><br>
+      <% if (client.gstin) { %>GSTIN: <span class="mono"><%= client.gstin %></span><br><% } %>
+      <% if (client.email) { %><%= client.email %><% } %>
+    </div>
+    <div>
+      <% if (doc.title) { %><h4>Subject</h4><b><%= doc.title %></b><br><% } %>
+      <% if (gst) { %><div class="mt-8">Place of supply: <b><%= client.state || s.state %><%= stateCode ? ' (' + stateCode + ')' : '' %></b></div><% } %>
+      <% if (gst && isInvoice) { %><div>Reverse charge: No</div><% } %>
+    </div>
+  </section>
+
+  <div class="table-wrap">
+  <table class="lines">
+    <thead><tr><th class="hide-sm" style="width:36px">#</th><th>Description</th><% if (gst) { %><th class="hide-sm">SAC</th><% } %><th class="num">Qty</th><th class="num">Rate</th><th class="num">Amount</th></tr></thead>
+    <tbody>
+      <% items.forEach(function (it, i) { %>
+      <tr><td class="hide-sm"><%= i + 1 %></td><td><%= it.description %></td><% if (gst) { %><td class="mono hide-sm"><%= it.sac || '' %></td><% } %><td class="num"><%= Number(it.quantity) %></td><td class="num"><%= h.inr(it.rate) %></td><td class="num"><%= h.inr(it.amount) %></td></tr>
+      <% }) %>
+    </tbody>
+  </table>
+  </div>
+
+  <div class="doc-foot">
+    <div>
+      <% if (doc.notes) { %><div class="doc-section mt-0"><h4>Notes</h4><%- h.nl2br(doc.notes) %></div><% } %>
+      <% if (isInvoice && (s.bank_account_number || s.upi_id)) { %>
+      <div class="doc-section">
+        <h4>Payment details</h4>
+        <% if (s.bank_account_number) { %>
+          <%= s.bank_account_name %> · A/c <span class="mono"><%= s.bank_account_number %></span><br>
+          <%= s.bank_name %><%= s.bank_branch ? ', ' + s.bank_branch : '' %> · IFSC <span class="mono"><%= s.bank_ifsc %></span><br>
+        <% } %>
+        <% if (s.upi_id) { %>UPI: <span class="mono"><%= s.upi_id %></span><% } %>
+      </div>
+      <% } %>
+    </div>
+    <div>
+      <div class="totals">
+        <div class="row-between"><span>Subtotal</span><span><%= h.inr(doc.subtotal) %></span></div>
+        <% if (Number(doc.discount)) { %><div class="row-between"><span>Discount</span><span>− <%= h.inr(doc.discount) %></span></div>
+        <div class="row-between"><span>Taxable value</span><span><%= h.inr(Number(doc.subtotal) - Number(doc.discount)) %></span></div><% } %>
+        <% if (doc.tax_mode === 'intra') { %>
+          <div class="row-between"><span>CGST @ <%= rate / 2 %>%</span><span><%= h.inr(doc.cgst) %></span></div>
+          <div class="row-between"><span>SGST @ <%= rate / 2 %>%</span><span><%= h.inr(doc.sgst) %></span></div>
+        <% } else if (doc.tax_mode === 'inter') { %>
+          <div class="row-between"><span>IGST @ <%= rate %>%</span><span><%= h.inr(doc.igst) %></span></div>
+        <% } %>
+        <div class="row-between grand"><span>Total</span><span><%= h.inr(doc.total) %></span></div>
+        <% if (isInvoice && Number(doc.amount_paid) > 0) { %>
+          <div class="row-between"><span>Paid</span><span>− <%= h.inr(doc.amount_paid) %></span></div>
+          <div class="row-between" style="font-weight:700"><span>Balance due</span><span><%= h.inr(Math.max(0, balance)) %></span></div>
+        <% } %>
+      </div>
+      <div class="words small"><%= h.words(doc.total) %></div>
+    </div>
+  </div>
+
+  <% if (doc.terms) { %><div class="doc-section"><h4>Terms</h4><%- h.nl2br(doc.terms) %></div><% } %>
+  <div class="doc-sign"><div>For <%= s.legal_name %><br><span class="muted small">Authorised signatory</span></div></div>
+  <% if (isInvoice && !gst) { %><p class="small muted mt-16 mb-0">This is a computer-generated invoice.</p><% } %>
+</article>

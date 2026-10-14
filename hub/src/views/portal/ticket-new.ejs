@@ -1,0 +1,12 @@
+<div class="crumbs"><a href="/portal/tickets">Support</a> / New</div>
+<div class="page-head"><h1>New request</h1></div>
+<form method="post" action="/portal/tickets" class="card card-pad" style="max-width:720px" novalidate>
+  <%- include('../partials/csrf') %>
+  <div class="field"><label for="subject">Subject</label><input id="subject" name="subject" type="text" value="<%= values.subject || '' %>" placeholder="e.g. Update prices on the menu page" <%- errors.subject ? 'aria-invalid="true"' : '' %> autofocus><% if (errors.subject) { %><div class="error"><%= errors.subject %></div><% } %></div>
+  <div class="form-grid">
+    <div class="field"><label for="project_id">Project</label><select id="project_id" name="project_id"><option value="">General</option><% projects.forEach(function (p) { %><option value="<%= p.id %>" <%= h.selected(values.project_id, p.id) %>><%= p.name %></option><% }) %></select></div>
+    <div class="field"><label for="priority">Urgency</label><select id="priority" name="priority"><option value="normal">Normal</option><option value="low" <%= h.selected(values.priority, 'low') %>>Low — whenever possible</option><option value="high" <%= h.selected(values.priority, 'high') %>>High — affects my business</option><option value="urgent" <%= h.selected(values.priority, 'urgent') %>>Urgent — site/app is down</option></select></div>
+  </div>
+  <div class="field"><label for="body">Details</label><textarea id="body" name="body" rows="6" placeholder="What do you need? Include page links or screenshots (Drive links) if helpful." <%- errors.body ? 'aria-invalid="true"' : '' %>><%= values.body || '' %></textarea><% if (errors.body) { %><div class="error"><%= errors.body %></div><% } %></div>
+  <div class="form-actions"><button class="btn" type="submit"><%- h.icon('send', 16) %> Send request</button><a class="btn btn-ghost" href="/portal/tickets">Cancel</a></div>
+</form>

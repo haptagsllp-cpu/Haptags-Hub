@@ -1,0 +1,40 @@
+<div class="page-head">
+  <div><h1>Retainers</h1><div class="sub">Recurring billing for AMC, hosting, SEO, social media and support plans.</div></div>
+  <div class="actions"><a class="btn" href="/admin/retainers/new"><%- h.icon('plus', 16) %> New retainer</a></div>
+</div>
+<div class="stats">
+  <div class="stat hero-stat"><div class="label">Monthly recurring revenue</div><div class="value"><%= h.inrShort(mrr) %></div><div class="delta"><%= h.inrShort(mrr * 12) %> a year, pre-tax</div></div>
+  <div class="stat"><div class="label">Active retainers</div><div class="value"><%= rows.filter(function (r) { return r.status === 'active'; }).length %></div><div class="delta">Invoices raise and send themselves</div></div>
+</div>
+
+<div class="split">
+  <div class="card">
+    <% if (!rows.length) { %><div class="empty"><b>No retainers yet</b>Recurring plans turn one-off projects into predictable monthly revenue.</div><% } else { %>
+    <div class="table-wrap"><table class="table">
+      <thead><tr><th>Retainer</th><th>Client</th><th>Every</th><th>Next invoice</th><th>Status</th><th class="num">Per month</th></tr></thead>
+      <tbody>
+        <% rows.forEach(function (r) { %>
+        <tr>
+          <td><a class="strong" href="/admin/retainers/<%= r.id %>"><%= r.title %></a><span class="sub"><%= r.auto_send ? 'Auto-emailed' : 'Created as invoice, not emailed' %></span></td>
+          <td><a href="/admin/clients/<%= r.client_id %>"><%= r.client_name %></a></td>
+          <td><%= h.humanize(r.interval) %></td>
+          <td class="nowrap"><%= r.status === 'active' ? h.date(r.next_invoice_date) : '—' %></td>
+          <td><%- h.badge(r.status) %></td>
+          <td class="num"><%= h.inrShort(r.monthly) %></td>
+        </tr>
+        <% }) %>
+      </tbody>
+    </table></div><% } %>
+  </div>
+  <section class="card">
+    <div class="card-head"><h3>Opportunities</h3></div>
+    <div class="card-body" style="padding-bottom:4px"><p class="small muted">Completed projects whose client has no active plan.</p></div>
+    <% if (!opportunities.length) { %><div class="empty">None right now.</div><% } else { %>
+    <ul class="list">
+      <% opportunities.forEach(function (o) { %>
+      <li><div class="grow"><span class="title"><%= o.client_name %></span><span class="meta"><%= o.name %></span></div>
+        <a class="btn btn-ghost btn-sm" href="/admin/retainers/new?client_id=<%= o.client_id %>&project_id=<%= o.id %>&title=<%= encodeURIComponent('Maintenance & support — ' + o.name) %>&item=<%= encodeURIComponent('Monthly maintenance, hosting & support — ' + o.name) %>">Set up</a></li>
+      <% }) %>
+    </ul><% } %>
+  </section>
+</div>

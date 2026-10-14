@@ -1,0 +1,28 @@
+<div class="page-head">
+  <div><h1>Quotations</h1><div class="sub"><%= openCount %> awaiting a decision worth <b><%= h.inrShort(openValue) %></b></div></div>
+  <div class="actions"><a class="btn" href="/admin/quotes/new"><%- h.icon('plus', 16) %> New quotation</a></div>
+</div>
+<nav class="tabs">
+  <a href="/admin/quotes" class="<%= !status ? 'active' : '' %>">All</a>
+  <% h.C.QUOTE_STATUSES.forEach(function (s) { %><a href="/admin/quotes?status=<%= s %>" class="<%= status === s ? 'active' : '' %>"><%= h.humanize(s) %></a><% }) %>
+</nav>
+<div class="card">
+  <% if (!rows.length) { %><div class="empty"><b>No quotations</b>Send a quote from any lead in two clicks.</div><% } else { %>
+  <div class="table-wrap"><table class="table">
+    <thead><tr><th>Quotation</th><th>Client</th><th>Date</th><th>Valid until</th><th>Status</th><th class="num">Total</th></tr></thead>
+    <tbody>
+      <% rows.forEach(function (q) { %>
+      <tr>
+        <td><a class="strong" href="/admin/quotes/<%= q.id %>"><%= q.title %></a><span class="sub mono"><%= q.number %></span></td>
+        <td><a href="/admin/clients/<%= q.client_id %>"><%= q.client_name %></a></td>
+        <td class="nowrap"><%= h.date(q.issue_date) %></td>
+        <td class="nowrap"><%= q.valid_until ? h.date(q.valid_until) : '—' %></td>
+        <td><%- h.badge(q.status) %></td>
+        <td class="num"><%= h.inr(q.total) %></td>
+      </tr>
+      <% }) %>
+    </tbody>
+  </table></div>
+  <%- include('../../partials/pager', { pagerBase: '/admin/quotes', pagerQuery: { status: status } }) %>
+  <% } %>
+</div>

@@ -1,0 +1,12 @@
+<% const editing = Boolean(doc.id); %>
+<div class="crumbs"><a href="/admin/quotes">Quotations</a> / <%= editing ? doc.number : 'New' %></div>
+<div class="page-head"><h1><%= editing ? 'Edit ' + doc.number : 'New quotation' %></h1></div>
+<form method="post" action="<%= editing ? '/admin/quotes/' + doc.id : '/admin/quotes' %>" novalidate>
+  <%- include('../../partials/csrf') %>
+  <% if (doc.lead_id) { %><input type="hidden" name="lead_id" value="<%= doc.lead_id %>"><% } %>
+  <%- include('../../partials/doc-editor', { kind: 'quote' }) %>
+  <div class="form-actions mt-16">
+    <button class="btn btn-lg" type="submit"><%= editing ? 'Save changes' : 'Save draft' %></button>
+    <a class="btn btn-ghost btn-lg" href="<%= editing ? '/admin/quotes/' + doc.id : '/admin/quotes' %>">Cancel</a>
+  </div>
+</form>

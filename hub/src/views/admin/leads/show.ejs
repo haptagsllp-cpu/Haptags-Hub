@@ -1,0 +1,94 @@
+<%
+  const first = lead.name.split(' ')[0];
+  const wa = h.waLink(lead.phone, 'Hi ' + first + ', this is ' + user.name.split(' ')[0] + ' from Haptags. Thanks for your enquiry' + (lead.service ? ' about ' + h.service(lead.service) : '') + ' — is now a good time for a quick call?');
+%>
+<div class="crumbs"><a href="/admin/leads">Leads</a> / <%= lead.name %></div>
+<div class="page-head">
+  <div>
+    <h1><%= lead.name %> <%- h.badge(lead.status) %></h1>
+    <div class="sub"><%= [lead.company, h.service(lead.service), 'via ' + h.humanize(lead.source), h.ago(lead.created_at)].filter(Boolean).join(' · ') %></div>
+  </div>
+  <div class="actions">
+    <% if (lead.phone) { %><a class="btn btn-ghost" href="tel:<%= lead.phone %>"><%- h.icon('phone', 16) %> Call</a><% } %>
+    <% if (wa) { %><a class="btn btn-wa" href="<%= wa %>" target="_blank" rel="noopener"><%- h.icon('whatsapp', 16) %> WhatsApp</a><% } %>
+    <% if (lead.email) { %><a class="btn btn-ghost" href="mailto:<%= lead.email %>?subject=<%= encodeURIComponent('Your enquiry with Haptags') %>"><%- h.icon('mail', 16) %> Email</a><% } %>
+    <% if (lead.client_id) { %>
+      <a class="btn" href="/admin/quotes/new?client_id=<%= lead.client_id %>&lead_id=<%= lead.id %>"><%- h.icon('quotes', 16) %> Create quote</a>
+    <% } else { %>
+      <form method="post" action="/admin/leads/<%= lead.id %>/convert" class="inline"><%- include('../../partials/csrf') %><input type="hidden" name="then" value="quote"><button class="btn" type="submit"><%- h.icon('quotes', 16) %> Create quote</button></form>
+    <% } %>
+  </div>
+</div>
+
+<div class="split">
+  <div class="stack">
+    <section class="card">
+      <div class="card-head"><h3>Enquiry</h3><a class="btn btn-ghost btn-sm" href="/admin/leads/<%= lead.id %>/edit"><%- h.icon('edit', 14) %> Edit</a></div>
+      <div class="card-body">
+        <dl class="dl">
+          <dt>Email</dt><dd><%= lead.email || '—' %></dd>
+          <dt>Phone</dt><dd><%= lead.phone || '—' %></dd>
+          <dt>Company</dt><dd><%= lead.company || '—' %></dd>
+          <dt>Website</dt><dd><% if (lead.website) { %><a href="<%= /^https?:/.test(lead.website) ? lead.website : 'https://' + lead.website %>" target="_blank" rel="noopener noreferrer"><%= lead.website %></a><% } else { %>—<% } %></dd>
+          <dt>Service</dt><dd><%= h.service(lead.service) || '—' %></dd>
+          <dt>Budget</dt><dd><%= h.budget(lead.budget) || '—' %></dd>
+          <dt>Timeline</dt><dd><%= h.timeline(lead.timeline) || '—' %></dd>
+          <dt>Source</dt><dd><%= h.humanize(lead.source) %><%= lead.source_detail ? ' · ' + lead.source_detail : '' %></dd>
+        </dl>
+        <% if (lead.message) { %><hr><div style="white-space:pre-wrap"><%= lead.message %></div><% } %>
+      </div>
+    </section>
+
+    <section class="card" id="activity">
+      <div class="card-head"><h3>Activity</h3></div>
+      <div class="card-body">
+        <form method="post" action="/admin/leads/<%= lead.id %>/note" class="mb-16">
+          <%- include('../../partials/csrf') %>
+          <div class="field mb-8"><label class="sr-only" for="note">Log an interaction</label><textarea id="note" name="body" rows="3" placeholder="What happened? e.g. Called — wants a demo on Friday, budget confirmed."></textarea></div>
+          <div class="row">
+            <select name="kind" style="width:auto" aria-label="Type"><option value="call">Call</option><option value="whatsapp">WhatsApp</option><option value="meeting">Meeting</option><option value="email">Email</option><option value="note">Note</option></select>
+            <label class="row small mb-0" style="font-weight:500">Next follow-up <input type="date" name="next_follow_up" style="width:auto"></label>
+            <button class="btn btn-sm" type="submit">Log</button>
+          </div>
+        </form>
+        <%- include('../../partials/timeline') %>
+      </div>
+    </section>
+  </div>
+
+  <div class="stack">
+    <section class="card">
+      <div class="card-head"><h3>Pipeline</h3></div>
+      <form method="post" action="/admin/leads/<%= lead.id %>/pipeline" class="card-body">
+        <%- include('../../partials/csrf') %>
+        <div class="field"><label for="status">Stage</label><select id="status" name="status"><% h.C.LEAD_STATUSES.forEach(function (s) { %><option value="<%= s %>" <%= h.selected(lead.status, s) %>><%= h.humanize(s) %></option><% }) %></select></div>
+        <div class="field" data-show-when="#status=lost"><label for="lost_reason">Why lost?</label><input id="lost_reason" name="lost_reason" type="text" value="<%= lead.lost_reason || '' %>" placeholder="Price, timing, chose competitor…"></div>
+        <div class="field"><label for="value_estimate">Estimated value (₹)</label><input id="value_estimate" name="value_estimate" type="text" inputmode="decimal" value="<%= h.rupees(lead.value_estimate) %>"></div>
+        <div class="field"><label for="next_follow_up2">Next follow-up</label><input id="next_follow_up2" name="next_follow_up" type="date" value="<%= lead.next_follow_up || '' %>"></div>
+        <div class="field"><label for="assigned_to">Owner</label><select id="assigned_to" name="assigned_to"><option value="">Unassigned</option><% users.forEach(function (u) { %><option value="<%= u.id %>" <%= h.selected(lead.assigned_to, u.id) %>><%= u.name %></option><% }) %></select></div>
+        <button class="btn btn-block" type="submit">Save</button>
+      </form>
+    </section>
+
+    <section class="card">
+      <div class="card-head"><h3>Client & quotes</h3></div>
+      <div class="card-body">
+        <% if (client) { %>
+          <p class="mb-8">Client: <a class="strong" href="/admin/clients/<%= client.id %>"><%= client.name %></a></p>
+        <% } else { %>
+          <p class="small muted">Create a client record to send quotes and invoices.</p>
+          <form method="post" action="/admin/leads/<%= lead.id %>/convert"><%- include('../../partials/csrf') %><button class="btn btn-ghost btn-block" type="submit">Create client record</button></form>
+        <% } %>
+        <% quotes.forEach(function (q) { %>
+          <div class="row-between mt-8"><a href="/admin/quotes/<%= q.id %>" class="mono"><%= q.number %></a><span><%= h.inrShort(q.total) %> <%- h.badge(q.status) %></span></div>
+        <% }) %>
+      </div>
+    </section>
+
+    <% if (isAdmin) { %>
+    <form method="post" action="/admin/leads/<%= lead.id %>/delete" data-confirm="Delete this lead and its history? This can’t be undone.">
+      <%- include('../../partials/csrf') %><button class="btn btn-danger btn-sm" type="submit"><%- h.icon('trash', 14) %> Delete lead</button>
+    </form>
+    <% } %>
+  </div>
+</div>

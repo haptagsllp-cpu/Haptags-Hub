@@ -1,0 +1,37 @@
+<div class="page-head">
+  <div><h1>Invoices</h1><div class="sub">GST invoices, numbered per financial year.</div></div>
+  <div class="actions"><a class="btn" href="/admin/invoices/new"><%- h.icon('plus', 16) %> New invoice</a></div>
+</div>
+<div class="stats">
+  <a class="stat" href="/admin/invoices?status=unpaid" style="text-decoration:none"><div class="label">Outstanding</div><div class="value"><%= h.inrShort(summary.outstanding) %></div><div class="delta"><%= summary.unpaidCount %> unpaid invoice(s)</div></a>
+  <a class="stat" href="/admin/invoices?status=overdue" style="text-decoration:none"><div class="label">Overdue</div><div class="value <%= summary.overdue ? 'down' : '' %>"><%= h.inrShort(summary.overdue) %></div><div class="delta"><%= summary.overdueCount %> overdue · reminders automatic</div></a>
+</div>
+<div class="row-between">
+  <nav class="tabs">
+    <% [['', 'All'], ['unpaid', 'Unpaid'], ['overdue', 'Overdue'], ['draft', 'Drafts'], ['paid', 'Paid'], ['void', 'Void']].forEach(function (t) { %>
+      <a href="<%= h.qs('/admin/invoices', { status: t[0], q: q }) %>" class="<%= status === t[0] ? 'active' : '' %>"><%= t[1] %></a>
+    <% }) %>
+  </nav>
+  <form method="get" class="mb-16"><input type="hidden" name="status" value="<%= status %>"><input type="search" name="q" value="<%= q || '' %>" placeholder="Number, client, title…" aria-label="Search invoices" style="width:220px"></form>
+</div>
+<div class="card">
+  <% if (!rows.length) { %><div class="empty"><b>No invoices here</b>Create one, or convert an accepted quotation.</div><% } else { %>
+  <div class="table-wrap"><table class="table">
+    <thead><tr><th>Invoice</th><th>Client</th><th>Date</th><th>Due</th><th>Status</th><th class="num">Total</th><th class="num">Balance</th></tr></thead>
+    <tbody>
+      <% rows.forEach(function (i) { const bal = Number(i.total) - Number(i.amount_paid); %>
+      <tr>
+        <td><a class="strong mono" href="/admin/invoices/<%= i.id %>"><%= i.number || 'Draft #' + i.id %></a><span class="sub"><%= i.title || '' %></span></td>
+        <td><a href="/admin/clients/<%= i.client_id %>"><%= i.client_name %></a></td>
+        <td class="nowrap"><%= h.date(i.issue_date) %></td>
+        <td class="nowrap <%= i.status === 'overdue' ? 'down' : '' %>"><%= h.date(i.due_date) %></td>
+        <td><%- h.badge(i.status) %></td>
+        <td class="num"><%= h.inr(i.total) %></td>
+        <td class="num <%= bal > 0 && !['draft', 'void'].includes(i.status) ? 'strong' : 'muted' %>"><%= ['draft', 'void'].includes(i.status) ? '—' : h.inr(bal) %></td>
+      </tr>
+      <% }) %>
+    </tbody>
+  </table></div>
+  <%- include('../../partials/pager', { pagerBase: '/admin/invoices', pagerQuery: { status: status, q: q } }) %>
+  <% } %>
+</div>

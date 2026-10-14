@@ -1,0 +1,14 @@
+<% const editing = Boolean(doc.id); %>
+<div class="crumbs"><a href="/admin/invoices">Invoices</a> / <%= editing ? 'Draft #' + doc.id : 'New' %></div>
+<div class="page-head"><h1><%= editing ? 'Edit draft invoice' : 'New invoice' %></h1></div>
+<form method="post" action="<%= editing ? '/admin/invoices/' + doc.id : '/admin/invoices' %>" novalidate data-no-disable>
+  <%- include('../../partials/csrf') %>
+  <%- include('../../partials/doc-editor', { kind: 'invoice' }) %>
+  <div class="form-actions mt-16">
+    <button class="btn btn-lg" type="submit" name="action" value="issue_send"><%- h.icon('send', 16) %> Issue & email</button>
+    <button class="btn btn-ghost btn-lg" type="submit" name="action" value="issue">Issue (don’t email)</button>
+    <button class="btn btn-ghost btn-lg" type="submit" name="action" value="draft">Save draft</button>
+    <a class="btn btn-ghost btn-lg" href="<%= editing ? '/admin/invoices/' + doc.id : '/admin/invoices' %>">Cancel</a>
+  </div>
+  <p class="small muted mt-8">Issuing assigns the next GST invoice number. Issued invoices can’t be edited — only voided.</p>
+</form>

@@ -1,0 +1,44 @@
+<div class="crumbs"><a href="/admin/retainers">Retainers</a> / <%= r.title %></div>
+<div class="page-head">
+  <div>
+    <h1><%= r.title %> <%- h.badge(r.status) %></h1>
+    <div class="sub"><a href="/admin/clients/<%= client.id %>"><%= client.name %></a> · <%= h.humanize(r.interval) %> · <%= h.inrShort(r.monthly) %>/month pre-tax</div>
+  </div>
+  <div class="actions">
+    <a class="btn btn-ghost" href="/admin/retainers/<%= r.id %>/edit"><%- h.icon('edit', 16) %> Edit</a>
+    <form method="post" action="/admin/retainers/<%= r.id %>/status" class="row">
+      <%- include('../../partials/csrf') %>
+      <% if (r.status === 'active') { %><button class="btn btn-ghost" name="status" value="paused">Pause</button><% } %>
+      <% if (r.status === 'paused') { %><button class="btn" name="status" value="active">Resume</button><% } %>
+    </form>
+    <% if (r.status !== 'ended') { %>
+    <form method="post" action="/admin/retainers/<%= r.id %>/status" data-confirm="End this retainer? No further invoices will be created."><%- include('../../partials/csrf') %><button class="btn btn-danger" name="status" value="ended">End</button></form>
+    <% } %>
+  </div>
+</div>
+<div class="split">
+  <div class="stack">
+    <section class="card">
+      <div class="card-head"><h3>Invoices generated</h3></div>
+      <% if (!invoices.length) { %><div class="empty">The first invoice will be created on <b><%= h.date(r.next_invoice_date) %></b>.</div><% } else { %>
+      <div class="table-wrap"><table class="table"><thead><tr><th>Number</th><th>Date</th><th>Status</th><th class="num">Total</th></tr></thead><tbody>
+        <% invoices.forEach(function (i) { %><tr><td><a class="strong mono" href="/admin/invoices/<%= i.id %>"><%= i.number || 'Draft' %></a></td><td><%= h.date(i.issue_date) %></td><td><%- h.badge(i.status) %></td><td class="num"><%= h.inr(i.total) %></td></tr><% }) %>
+      </tbody></table></div><% } %>
+    </section>
+    <section class="card"><div class="card-head"><h3>History</h3></div><div class="card-body"><%- include('../../partials/timeline') %></div></section>
+  </div>
+  <section class="card">
+    <div class="card-head"><h3>Schedule</h3></div>
+    <div class="card-body">
+      <dl class="dl" style="grid-template-columns:120px 1fr">
+        <dt>Next invoice</dt><dd><%= r.status === 'active' ? h.date(r.next_invoice_date) : '—' %></dd>
+        <dt>Ends</dt><dd><%= r.end_date ? h.date(r.end_date) : 'Until stopped' %></dd>
+        <dt>Payment due</dt><dd><%= r.due_days %> days after invoice</dd>
+        <dt>Email client</dt><dd><%= r.auto_send ? 'Yes, automatically' : 'No' %></dd>
+        <dt>GST</dt><dd><%= r.tax_mode === 'none' ? 'None' : (r.tax_mode === 'intra' ? 'CGST+SGST' : 'IGST') + ' @ ' + Number(r.gst_rate) + '%' %></dd>
+      </dl>
+      <hr>
+      <% items.forEach(function (it) { %><div class="row-between small mb-8"><span><%= it.description %></span><b><%= h.inr(it.amount) %></b></div><% }) %>
+    </div>
+  </section>
+</div>

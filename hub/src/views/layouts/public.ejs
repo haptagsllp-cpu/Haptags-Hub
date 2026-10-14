@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en-IN">
+<head><%- include('../partials/head') %></head>
+<body class="public">
+  <header class="public-head">
+    <a class="brand" href="<%= settings.website %>"><img src="/static/img/haptags-mark.webp" alt=""><span><b>HAPTAGS</b><small><%= settings.tagline %></small></span></a>
+    <% if (user) { %>
+      <a class="btn btn-ghost btn-sm" href="<%= user.role === 'client' ? '/portal' : '/admin' %>">My dashboard</a>
+    <% } else if (locals.fullPath !== '/login') { %>
+      <a class="btn btn-ghost btn-sm" href="/login"><%- h.icon('lock', 16) %> Client login</a>
+    <% } %>
+  </header>
+  <main class="public-main">
+    <%- include('../partials/flash') %>
+    <%- body %>
+  </main>
+  <footer class="public-foot">© <%= new Date().getFullYear() %> <%= settings.legal_name %> · <%= settings.city %> · <a href="mailto:<%= settings.email %>"><%= settings.email %></a> · <%= settings.phone %></footer>
+  <script src="/static/js/app.js?v=1" defer></script>
+</body>
+</html>

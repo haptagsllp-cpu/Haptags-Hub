@@ -1,0 +1,105 @@
+<%
+  // kind: 'quote' | 'invoice' | 'retainer'
+  const items = (doc.items && doc.items.length) ? doc.items : [{ description: '', sac: settings.default_sac, quantity: 1, rate: 0 }];
+  const gstRegistered = Boolean(settings.gstin);
+%>
+<div data-doc-editor data-company-state="<%= settings.state %>" data-gst-registered="<%= gstRegistered ? '1' : '0' %>">
+  <section class="card card-pad">
+    <div class="form-grid">
+      <div class="field">
+        <label for="client_id">Client *</label>
+        <select id="client_id" name="client_id" <%- errors.client_id ? 'aria-invalid="true"' : '' %> required>
+          <option value="">— Select client —</option>
+          <% clients.forEach(function (c) { %><option value="<%= c.id %>" data-state="<%= c.state || '' %>" data-country="<%= c.country || 'India' %>" <%= h.selected(doc.client_id, c.id) %>><%= c.name %><%= c.state ? ' · ' + c.state : '' %></option><% }) %>
+        </select>
+        <% if (errors.client_id) { %><div class="error"><%= errors.client_id %></div><% } %>
+        <div class="hint">Not listed? <a href="/admin/clients/new" target="_blank">Add a client</a>, then reload.</div>
+      </div>
+      <div class="field">
+        <label for="title"><%= kind === 'retainer' ? 'Retainer name *' : 'Title / subject' %></label>
+        <input id="title" name="title" type="text" value="<%= doc.title || '' %>" placeholder="<%= kind === 'retainer' ? 'SEO & social media — monthly' : 'e.g. Website redesign — Phase 1' %>" <%- errors.title ? 'aria-invalid="true"' : '' %>>
+        <% if (errors.title) { %><div class="error"><%= errors.title %></div><% } %>
+      </div>
+      <% if (kind === 'invoice') { %>
+        <div class="field"><label for="issue_date">Invoice date</label><input id="issue_date" name="issue_date" type="date" value="<%= doc.issue_date || '' %>"></div>
+        <div class="field"><label for="due_date">Due date</label><input id="due_date" name="due_date" type="date" value="<%= doc.due_date || '' %>" <%- errors.due_date ? 'aria-invalid="true"' : '' %>><% if (errors.due_date) { %><div class="error"><%= errors.due_date %></div><% } %></div>
+        <% if (locals.projects) { %>
+        <div class="field"><label for="project_id">Project (optional)</label><select id="project_id" name="project_id"><option value="">—</option><% projects.forEach(function (p) { %><option value="<%= p.id %>" data-client="<%= p.client_id %>" <%= h.selected(doc.project_id, p.id) %>><%= p.name %></option><% }) %></select></div>
+        <% } %>
+      <% } else if (kind === 'quote') { %>
+        <div class="field"><label for="issue_date">Quotation date</label><input id="issue_date" name="issue_date" type="date" value="<%= doc.issue_date || '' %>"></div>
+        <div class="field"><label for="valid_until">Valid until</label><input id="valid_until" name="valid_until" type="date" value="<%= doc.valid_until || '' %>"></div>
+      <% } else { %>
+        <div class="field"><label for="interval">Bill every</label><select id="interval" name="interval"><% h.C.RETAINER_INTERVALS.forEach(function (i) { %><option value="<%= i[0] %>" <%= h.selected(doc.interval, i[0]) %>><%= i[1] %></option><% }) %></select></div>
+        <div class="field"><label for="next_invoice_date">Next invoice on *</label><input id="next_invoice_date" name="next_invoice_date" type="date" value="<%= doc.next_invoice_date || '' %>" <%- errors.next_invoice_date ? 'aria-invalid="true"' : '' %>><% if (errors.next_invoice_date) { %><div class="error"><%= errors.next_invoice_date %></div><% } %></div>
+        <div class="field"><label for="due_days">Payment due (days after invoice)</label><input id="due_days" name="due_days" type="number" min="0" max="90" value="<%= doc.due_days || 7 %>"></div>
+        <div class="field"><label for="end_date">End date (optional)</label><input id="end_date" name="end_date" type="date" value="<%= doc.end_date || '' %>"><div class="hint">Leave blank to bill until you stop it.</div></div>
+        <div class="field full"><label class="check"><input type="checkbox" name="auto_send" value="1" <%= h.checked(doc.auto_send) %>> Email each invoice to the client automatically</label></div>
+      <% } %>
+    </div>
+  </section>
+
+  <section class="card mt-16">
+    <div class="card-head"><h3>Line items</h3><span class="muted small">Amounts in ₹, before tax</span></div>
+    <div class="card-body">
+      <% if (errors.items) { %><div class="flash flash-error"><%- h.icon('alert') %><span><%= errors.items %></span></div><% } %>
+      <table class="items" id="items">
+        <thead><tr><th class="c-desc">Description</th><th class="c-sac">SAC</th><th class="c-qty">Qty</th><th class="c-rate">Rate (₹)</th><th class="right">Amount</th><th></th></tr></thead>
+        <tbody>
+          <% items.forEach(function (it) { %>
+          <tr>
+            <td class="c-desc-td"><input type="text" name="item_description" value="<%= it.description || '' %>" placeholder="Service or deliverable" aria-label="Description"></td>
+            <td><input type="text" name="item_sac" value="<%= it.sac || '' %>" class="mono" aria-label="SAC code"></td>
+            <td><input type="text" name="item_qty" value="<%= Number(it.quantity) || 1 %>" inputmode="decimal" aria-label="Quantity"></td>
+            <td><input type="text" name="item_rate" value="<%= h.rupees(it.rate) %>" inputmode="decimal" placeholder="0" aria-label="Rate"></td>
+            <td class="amt">₹0.00</td>
+            <td><button class="icon-btn" data-remove-item aria-label="Remove line" type="button" style="color:var(--text-3);margin-top:4px"><%- h.icon('trash', 15) %></button></td>
+          </tr>
+          <% }) %>
+        </tbody>
+      </table>
+      <template id="item-template">
+        <tr>
+          <td class="c-desc-td"><input type="text" name="item_description" placeholder="Service or deliverable" aria-label="Description"></td>
+          <td><input type="text" name="item_sac" value="<%= settings.default_sac %>" class="mono" aria-label="SAC code"></td>
+          <td><input type="text" name="item_qty" value="1" inputmode="decimal" aria-label="Quantity"></td>
+          <td><input type="text" name="item_rate" inputmode="decimal" placeholder="0" aria-label="Rate"></td>
+          <td class="amt">₹0.00</td>
+          <td><button class="icon-btn" data-remove-item aria-label="Remove line" type="button" style="color:var(--text-3);margin-top:4px"><%- h.icon('trash', 15) %></button></td>
+        </tr>
+      </template>
+      <button class="btn btn-ghost btn-sm mt-8" type="button" data-add-item><%- h.icon('plus', 14) %> Add line</button>
+
+      <div class="grid grid-2 mt-24" style="align-items:start">
+        <div class="form-grid">
+          <div class="field">
+            <label for="tax_mode">GST</label>
+            <select id="tax_mode" name="tax_mode">
+              <option value="intra" <%= h.selected(doc.tax_mode, 'intra') %>>CGST + SGST (same state)</option>
+              <option value="inter" <%= h.selected(doc.tax_mode, 'inter') %>>IGST (other state)</option>
+              <option value="none" <%= h.selected(doc.tax_mode, 'none') %>>No GST</option>
+            </select>
+            <% if (!gstRegistered) { %><div class="hint">Add your GSTIN in Settings to charge GST.</div><% } %>
+          </div>
+          <div class="field"><label for="gst_rate">GST rate (%)</label><input id="gst_rate" name="gst_rate" type="number" min="0" max="28" step="0.01" value="<%= doc.gst_rate !== undefined && doc.gst_rate !== null ? Number(doc.gst_rate) : 18 %>"></div>
+          <% if (kind !== 'retainer') { %><div class="field"><label for="discount">Discount (₹)</label><input id="discount" name="discount" type="text" inputmode="decimal" value="<%= h.rupees(doc.discount) %>" placeholder="0"></div><% } %>
+        </div>
+        <div class="totals">
+          <div class="row-between"><span>Subtotal</span><span data-total="subtotal">₹0.00</span></div>
+          <div class="row-between" hidden><span>Discount</span><span data-total="discount">₹0.00</span></div>
+          <div class="row-between"><span>CGST <span data-rate-label="half"></span></span><span data-total="cgst">₹0.00</span></div>
+          <div class="row-between"><span>SGST <span data-rate-label="half"></span></span><span data-total="sgst">₹0.00</span></div>
+          <div class="row-between" hidden><span>IGST <span data-rate-label="full"></span></span><span data-total="igst">₹0.00</span></div>
+          <div class="row-between grand"><span>Total<%= kind === 'retainer' ? ' per invoice' : '' %></span><span data-total="total">₹0.00</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="card card-pad mt-16">
+    <div class="form-grid">
+      <div class="field <%= kind === 'retainer' ? 'full' : '' %>"><label for="notes">Notes <span class="muted">(shown on the document)</span></label><textarea id="notes" name="notes" rows="3"><%= doc.notes || '' %></textarea></div>
+      <% if (kind !== 'retainer') { %><div class="field"><label for="terms">Terms</label><textarea id="terms" name="terms" rows="3"><%= doc.terms || '' %></textarea></div><% } %>
+    </div>
+  </section>
+</div>

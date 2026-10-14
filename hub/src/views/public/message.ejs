@@ -1,0 +1,8 @@
+<div class="card card-pad auth-card" style="max-width:520px;text-align:center">
+  <h1><%= heading %></h1>
+  <% if (locals.body) { %><p class="muted"><%= locals.body %></p><% } %>
+  <div class="row" style="justify-content:center">
+    <% if (locals.link) { %><a class="btn" href="<%= link.href %>"><%= link.label %></a><% } %>
+    <% if (locals.whatsapp && settings.whatsapp) { %><a class="btn btn-wa" href="https://wa.me/<%= settings.whatsapp %>" target="_blank" rel="noopener"><%- h.icon('whatsapp') %> WhatsApp</a><% } %>
+  </div>
+</div>

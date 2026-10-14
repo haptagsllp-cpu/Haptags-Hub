@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en-IN">
+<head><%- include('../partials/head') %></head>
+<body>
+<div class="shell">
+  <aside class="sidebar" aria-label="Main navigation">
+    <a class="brand" href="/admin"><img src="/static/img/haptags-mark-light.webp" alt=""><span><b>HAPTAGS</b><small>Operations Hub</small></span></a>
+    <%
+      const c = locals.counts || {};
+      const items = [
+        ['/admin', 'dashboard', 'Dashboard', null, true],
+        ['/admin/leads', 'leads', 'Leads', c.leads],
+        ['/admin/clients', 'clients', 'Clients'],
+        ['/admin/projects', 'projects', 'Projects'],
+        ['/admin/tickets', 'tickets', 'Support', c.tickets],
+      ];
+      const money = [
+        ['/admin/quotes', 'quotes', 'Quotations'],
+        ['/admin/invoices', 'invoices', 'Invoices'],
+        ['/admin/payments', 'payments', 'Payments', c.payments],
+        ['/admin/retainers', 'retainers', 'Retainers'],
+      ];
+      const adminItems = isAdmin ? [
+        ['/admin/settings', 'settings', 'Settings'],
+        ['/admin/team', 'team', 'Team'],
+        ['/admin/emails', 'mail', 'Email log'],
+      ] : [];
+      const full = locals.fullPath || '';
+      const link = function (it) {
+        const active = it[4] ? full === it[0] : full === it[0] || full.startsWith(it[0] + '/');
+        return '<a href="' + it[0] + '" class="' + (active ? 'active' : '') + '"' + (active ? ' aria-current="page"' : '') + '>' + h.icon(it[1]) + '<span>' + it[2] + '</span>' + (it[3] ? '<span class="count">' + it[3] + '</span>' : '') + '</a>';
+      };
+    %>
+    <nav class="nav">
+      <%- items.map(link).join('') %>
+      <div class="nav-label">Money</div>
+      <%- money.map(link).join('') %>
+      <% if (adminItems.length) { %><div class="nav-label">Admin</div><%- adminItems.map(link).join('') %><% } %>
+    </nav>
+    <div class="sidebar-foot">
+      <span class="avatar"><%= h.initials(user.name) %></span>
+      <div class="who"><b><%= user.name %></b><a href="/admin/account">My account</a></div>
+      <form method="post" action="/logout" class="inline"><%- include('../partials/csrf') %><button class="icon-btn" title="Sign out" aria-label="Sign out"><%- h.icon('logout') %></button></form>
+    </div>
+  </aside>
+  <div class="main">
+    <header class="topbar">
+      <button class="icon-btn menu-btn" data-nav-toggle aria-label="Open menu"><%- h.icon('menu', 22) %></button>
+      <form class="search" action="/admin/search" method="get" role="search">
+        <%- h.icon('search', 16) %>
+        <input type="search" name="q" placeholder="Search leads, clients, invoices…" value="<%= locals.searchQuery || '' %>" aria-label="Search">
+      </form>
+      <span class="spacer"></span>
+      <a class="btn btn-ghost btn-sm" href="/admin/leads/new"><%- h.icon('plus', 16) %><span class="hide-sm"> Lead</span></a>
+      <a class="btn btn-sm" href="/admin/invoices/new"><%- h.icon('plus', 16) %><span class="hide-sm"> Invoice</span></a>
+    </header>
+    <main class="content">
+      <%- include('../partials/flash') %>
+      <%- body %>
+    </main>
+  </div>
+</div>
+<script src="/static/js/app.js?v=1" defer></script>
+</body>
+</html>

@@ -1,0 +1,103 @@
+<%
+  const tabs = [['company', 'Company'], ['billing', 'Invoices & quotes'], ['payments', 'Payment details'], ['automation', 'Automation'], ['integrations', 'Integrations']];
+  const f = function (key, label, opts) {
+    opts = opts || {};
+    const id = 'f-' + key;
+    const input = opts.textarea
+      ? '<textarea id="' + id + '" name="' + key + '" rows="' + (opts.rows || 3) + '">' + h.esc(s[key]) + '</textarea>'
+      : '<input id="' + id + '" name="' + key + '" type="' + (opts.type || 'text') + '" value="' + h.esc(s[key]) + '"' + (opts.mono ? ' class="mono"' : '') + (opts.placeholder ? ' placeholder="' + h.esc(opts.placeholder) + '"' : '') + '>';
+    return '<div class="field' + (opts.full ? ' full' : '') + '"><label for="' + id + '">' + label + '</label>' + input + (opts.hint ? '<div class="hint">' + opts.hint + '</div>' : '') + '</div>';
+  };
+%>
+<div class="page-head"><div><h1>Settings</h1><div class="sub">These details appear on invoices, quotations and emails.</div></div></div>
+<nav class="tabs"><% tabs.forEach(function (t) { %><a href="/admin/settings?tab=<%= t[0] %>" class="<%= tab === t[0] ? 'active' : '' %>"><%= t[1] %></a><% }) %></nav>
+
+<% if (tab === 'company') { %>
+<form method="post" action="/admin/settings" class="card card-pad" style="max-width:900px">
+  <%- include('../../partials/csrf') %><input type="hidden" name="group" value="company">
+  <div class="form-grid">
+    <%- f('company_name', 'Brand name') %>
+    <%- f('legal_name', 'Legal name (on invoices)') %>
+    <%- f('tagline', 'Tagline') %>
+    <%- f('website', 'Website') %>
+    <%- f('address', 'Address', { full: true }) %>
+    <%- f('city', 'City') %>
+    <div class="field"><label for="f-state">State</label><select id="f-state" name="state"><% h.C.STATES.forEach(function (st) { %><option value="<%= st[1] %>" <%= h.selected(s.state, st[1]) %>><%= st[1] %></option><% }) %></select><div class="hint">Decides CGST+SGST vs IGST for each client.</div></div>
+    <%- f('pincode', 'PIN code') %>
+    <%- f('gstin', 'GSTIN', { mono: true, hint: 'Leave blank if not GST-registered — invoices then show no GST.' }) %>
+    <%- f('pan', 'PAN', { mono: true }) %>
+    <%- f('llpin', 'LLPIN', { mono: true }) %>
+    <%- f('udyam', 'Udyam (MSME) no.', { mono: true }) %>
+    <%- f('email', 'Public email') %>
+    <%- f('phone', 'Phone') %>
+    <%- f('whatsapp', 'WhatsApp number', { hint: 'With country code, digits only, e.g. 919986861402.' }) %>
+  </div>
+  <button class="btn" type="submit">Save company details</button>
+</form>
+<% } else if (tab === 'billing') { %>
+<form method="post" action="/admin/settings" class="card card-pad" style="max-width:900px">
+  <%- include('../../partials/csrf') %><input type="hidden" name="group" value="billing">
+  <div class="form-grid">
+    <%- f('invoice_prefix', 'Invoice prefix', { mono: true, hint: 'Numbers look like ' + h.esc(s.invoice_prefix) + '/26-27/0001 and restart each financial year.' }) %>
+    <%- f('quote_prefix', 'Quotation prefix', { mono: true }) %>
+    <%- f('default_due_days', 'Invoice due in (days)', { type: 'number' }) %>
+    <%- f('quote_valid_days', 'Quotes valid for (days)', { type: 'number' }) %>
+    <%- f('default_gst_rate', 'Default GST rate (%)', { type: 'number' }) %>
+    <%- f('default_sac', 'Default SAC code', { mono: true, hint: '998314 = IT design & development services. Confirm codes with your CA.' }) %>
+    <%- f('invoice_terms', 'Default invoice terms', { textarea: true, full: true }) %>
+    <%- f('quote_terms', 'Default quotation terms', { textarea: true, full: true }) %>
+  </div>
+  <button class="btn" type="submit">Save</button>
+</form>
+<% } else if (tab === 'payments') { %>
+<form method="post" action="/admin/settings" class="card card-pad" style="max-width:900px">
+  <%- include('../../partials/csrf') %><input type="hidden" name="group" value="payments">
+  <p class="muted">Shown on every invoice. A UPI ID adds a scan-to-pay QR with the amount pre-filled — the cheapest way to get paid.</p>
+  <div class="form-grid">
+    <%- f('upi_id', 'UPI ID', { mono: true, placeholder: 'haptags@okaxis' }) %>
+    <%- f('upi_name', 'UPI payee name') %>
+    <%- f('bank_account_name', 'Account name') %>
+    <%- f('bank_account_number', 'Account number', { mono: true }) %>
+    <%- f('bank_ifsc', 'IFSC', { mono: true }) %>
+    <%- f('bank_name', 'Bank') %>
+    <%- f('bank_branch', 'Branch') %>
+  </div>
+  <button class="btn" type="submit">Save payment details</button>
+</form>
+<% } else if (tab === 'automation') { %>
+<form method="post" action="/admin/settings" class="card card-pad" style="max-width:760px">
+  <%- include('../../partials/csrf') %><input type="hidden" name="group" value="automation">
+  <div class="field"><label class="check"><input type="checkbox" name="auto_reminders" value="1" <%= h.checked(s.auto_reminders) %>> <span>Automatic payment reminders<br><span class="small muted">Emails clients 3 days before the due date, on the due date, then 3, 7, 14 and 30 days after — until paid.</span></span></label></div>
+  <div class="field"><label class="check"><input type="checkbox" name="lead_auto_reply" value="1" <%= h.checked(s.lead_auto_reply) %>> <span>Instant reply to new enquiries<br><span class="small muted">Thanks the prospect immediately and points them to WhatsApp.</span></span></label></div>
+  <p class="small muted">Also automatic: retainer invoices on schedule, overdue marking, expiring old quotations. Runs every hour<%= s.automation_last_run ? ' · last run ' + h.dateTime(s.automation_last_run) : '' %>.</p>
+  <button class="btn" type="submit">Save</button>
+</form>
+<% } else { %>
+<div class="grid grid-2" style="align-items:start">
+  <section class="card">
+    <div class="card-head"><h3>Website lead form → Hub</h3></div>
+    <div class="card-body">
+      <p class="small">Send enquiries from haptags.com (or any form, Zapier, ads) into Leads. POST JSON or form data:</p>
+      <div class="copy-field mb-8"><input id="lead-url" type="text" readonly value="<%= baseUrl %>/api/v1/leads" aria-label="Endpoint"><button class="btn btn-ghost btn-sm" data-copy="#lead-url"><%- h.icon('copy', 14) %></button></div>
+      <label for="lead-key">Header <code>X-API-Key</code></label>
+      <div class="copy-field mb-8"><input id="lead-key" type="text" readonly value="<%= s.lead_api_key %>"><button class="btn btn-ghost btn-sm" data-copy="#lead-key"><%- h.icon('copy', 14) %></button></div>
+      <p class="small muted">Fields: <code>name</code>, <code>email</code>, <code>phone</code>, <code>company</code>, <code>service</code>, <code>budget</code>, <code>timeline</code>, <code>message</code>, <code>source</code> — the same names your site’s contact form already uses. Keep the key server-side.</p>
+      <p class="small">Or share the hosted form: <a href="/start" target="_blank"><%= baseUrl %>/start</a></p>
+      <form method="post" action="/admin/settings/regenerate-key" data-confirm="Generate a new key? The old one stops working immediately."><%- include('../../partials/csrf') %><button class="btn btn-ghost btn-sm">Regenerate key</button></form>
+    </div>
+  </section>
+  <section class="card">
+    <div class="card-head"><h3>Connections</h3></div>
+    <div class="card-body">
+      <div class="row-between mb-8"><span>Email (SMTP)</span><%- h.badge(status.mail ? 'active' : 'pending', status.mail ? 'Connected' : 'Not set up') %></div>
+      <p class="small muted">Set <code>SMTP_HOST</code>, <code>SMTP_USER</code>, <code>SMTP_PASS</code> on the server (Hostinger email: smtp.hostinger.com, port 465). Sends from <%= status.mailFrom %>; alerts go to <%= status.notifyEmail %>.</p>
+      <% if (status.mail) { %><form method="post" action="/admin/settings/test-email" class="mb-16"><%- include('../../partials/csrf') %><button class="btn btn-ghost btn-sm">Send test email</button></form><% } %>
+      <div class="row-between mb-8"><span>Razorpay</span><%- h.badge(status.razorpay ? 'active' : 'pending', status.razorpay ? 'Connected' : 'Not set up') %></div>
+      <p class="small muted">Set <code>RAZORPAY_KEY_ID</code> and <code>RAZORPAY_KEY_SECRET</code> to show “Pay online” on invoices.</p>
+      <div class="row-between mb-8"><span>Razorpay webhook</span><%- h.badge(status.webhook ? 'active' : 'pending', status.webhook ? 'Connected' : 'Not set up') %></div>
+      <p class="small muted">In Razorpay → Webhooks, add <code><%= baseUrl %>/webhooks/razorpay</code> with event <code>payment.captured</code>, and set the same secret as <code>RAZORPAY_WEBHOOK_SECRET</code>.</p>
+      <div class="row-between"><span>Database</span><span class="small mono"><%= status.db %></span></div>
+    </div>
+  </section>
+</div>
+<% } %>

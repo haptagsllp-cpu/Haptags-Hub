@@ -1,0 +1,11 @@
+<div class="page-head"><div><h1>My account</h1><div class="sub"><%= user.name %> · <%= user.email %> · <%= h.humanize(user.role) %></div></div></div>
+<form method="post" action="/admin/account" class="card card-pad" style="max-width:480px">
+  <%- include('../../partials/csrf') %>
+  <h3>Change password</h3>
+  <% if (error) { %><div class="flash flash-error"><%- h.icon('alert') %><span><%= error %></span></div><% } %>
+  <input type="email" name="email" value="<%= user.email %>" autocomplete="username" hidden>
+  <div class="field"><label for="current">Current password</label><input id="current" name="current" type="password" autocomplete="current-password" required></div>
+  <div class="field"><label for="password">New password</label><input id="password" name="password" type="password" autocomplete="new-password" minlength="8" required></div>
+  <div class="field"><label for="confirm">Confirm new password</label><input id="confirm" name="confirm" type="password" autocomplete="new-password" minlength="8" required></div>
+  <button class="btn" type="submit">Change password</button>
+</form>

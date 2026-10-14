@@ -1,0 +1,162 @@
+<%
+  const greet = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+  const diff = kpi.collectedMonth - kpi.collectedPrevToDate;
+  const pct = kpi.collectedPrevToDate ? Math.round((diff / kpi.collectedPrevToDate) * 100) : null;
+  const maxStage = Math.max(1, ...stages.map(function (s) { return s.value; }));
+%>
+<div class="page-head">
+  <div>
+    <h1><%= greet %>, <%= user.name.split(' ')[0] %></h1>
+    <div class="sub"><%= h.date(today) %> · Here’s how Haptags is doing.</div>
+  </div>
+  <div class="actions">
+    <form method="post" action="/admin/automation/run" class="inline">
+      <%- include('../partials/csrf') %>
+      <button class="btn btn-ghost btn-sm" type="submit" title="<%= lastRun ? 'Last run ' + h.dateTime(lastRun) : 'Never run' %>"><%- h.icon('zap', 16) %> Run automations</button>
+    </form>
+    <a class="btn btn-ghost btn-sm" href="/admin/quotes/new"><%- h.icon('quotes', 16) %> New quote</a>
+  </div>
+</div>
+
+<div class="stats">
+  <div class="stat hero-stat">
+    <div class="label">Collected this month</div>
+    <div class="value"><%= h.inrShort(kpi.collectedMonth) %></div>
+    <div class="delta">
+      <% if (pct !== null) { %><b class="<%= diff >= 0 ? 'up' : 'down' %>"><%= diff >= 0 ? '▲' : '▼' %> <%= Math.abs(pct) %>%</b> vs same point last month<% } else { %>12-month total <%= h.inrCompact(kpi.collectedYear) %><% } %>
+    </div>
+  </div>
+  <div class="stat">
+    <div class="label">Outstanding</div>
+    <a class="value" href="/admin/invoices?status=unpaid"><%= h.inrShort(kpi.outstanding) %></a>
+    <div class="delta"><% if (kpi.overdueAmt) { %><b class="down"><%= h.inrShort(kpi.overdueAmt) %> overdue</b><% } else { %>Nothing overdue<% } %></div>
+  </div>
+  <div class="stat">
+    <div class="label">Recurring revenue (MRR)</div>
+    <a class="value" href="/admin/retainers"><%= h.inrShort(kpi.mrr) %></a>
+    <div class="delta">Active retainers, pre-tax</div>
+  </div>
+  <div class="stat">
+    <div class="label">Open pipeline</div>
+    <a class="value" href="/admin/leads"><%= h.inrShort(kpi.pipelineValue) %></a>
+    <div class="delta"><%= kpi.pipelineCount %> open lead<%= kpi.pipelineCount === 1 ? '' : 's' %> · <%= kpi.leadsThisMonth %> new this month</div>
+  </div>
+  <div class="stat">
+    <div class="label">Win rate (90 days)</div>
+    <div class="value"><%= kpi.winRate === null ? '—' : kpi.winRate + '%' %></div>
+    <div class="delta"><%= kpi.decided %> lead<%= kpi.decided === 1 ? '' : 's' %> decided · invoiced <%= h.inrCompact(kpi.invoicedMonth) %> this month</div>
+  </div>
+</div>
+
+<div class="split">
+  <div class="stack">
+    <section class="card">
+      <div class="card-head"><h2>Money collected per month</h2><span class="muted">Last 12 months · <%= h.inrCompact(kpi.collectedYear) %> total</span></div>
+      <div class="card-body">
+        <div class="chart-scroll"><%- chart %></div>
+        <details class="table-view">
+          <summary>Show as table</summary>
+          <div class="table-wrap mt-8"><table class="table"><thead><tr><th>Month</th><th class="num">Collected</th></tr></thead><tbody>
+            <% series.forEach(function (p) { %><tr><td><%= p.tip %></td><td class="num"><%= h.inr(p.value) %></td></tr><% }) %>
+          </tbody></table></div>
+        </details>
+      </div>
+    </section>
+
+    <div class="grid grid-2">
+      <section class="card">
+        <div class="card-head"><h3>Leads needing action</h3><a class="small" href="/admin/leads?status=followup">All follow-ups →</a></div>
+        <% if (!actionLeads.length) { %><div class="empty"><b>All caught up</b>No new leads or follow-ups due.</div><% } else { %>
+        <ul class="list">
+          <% actionLeads.forEach(function (l) { %>
+          <li>
+            <div class="grow"><a class="title" href="/admin/leads/<%= l.id %>"><%= l.name %><%= l.company ? ' · ' + l.company : '' %></a>
+              <span class="meta"><%= h.service(l.service) || 'General enquiry' %> · <%= l.status === 'new' ? 'arrived ' + h.ago(l.created_at) : 'follow-up ' + h.date(l.next_follow_up) %></span></div>
+            <% const wa = h.waLink(l.phone, 'Hi ' + l.name.split(' ')[0] + ', this is ' + user.name.split(' ')[0] + ' from Haptags regarding your enquiry.'); %>
+            <% if (wa) { %><a class="btn btn-wa btn-sm" href="<%= wa %>" target="_blank" rel="noopener" title="WhatsApp"><%- h.icon('whatsapp', 16) %></a><% } %>
+            <%- h.badge(l.status) %>
+          </li>
+          <% }) %>
+        </ul><% } %>
+      </section>
+
+      <section class="card">
+        <div class="card-head"><h3>Overdue invoices</h3><a class="small" href="/admin/invoices?status=overdue">All →</a></div>
+        <% if (!overdue.length) { %><div class="empty"><b>No overdue invoices</b>Reminders go out automatically.</div><% } else { %>
+        <ul class="list">
+          <% overdue.forEach(function (i) { %>
+          <li>
+            <div class="grow"><a class="title" href="/admin/invoices/<%= i.id %>"><%= i.client_name %></a>
+              <span class="meta mono"><%= i.number %></span><span class="meta"> · due <%= h.date(i.due_date) %></span></div>
+            <% const wa = h.waLink(i.client_phone, 'Hi, a gentle reminder for invoice ' + i.number + ' (' + h.inr(Number(i.total) - Number(i.amount_paid)) + '). You can pay here: ' + baseUrl + '/i/' + i.public_token); %>
+            <% if (wa) { %><a class="btn btn-wa btn-sm" href="<%= wa %>" target="_blank" rel="noopener" title="Send WhatsApp reminder"><%- h.icon('whatsapp', 16) %></a><% } %>
+            <b class="nowrap"><%= h.inrShort(Number(i.total) - Number(i.amount_paid)) %></b>
+          </li>
+          <% }) %>
+        </ul><% } %>
+      </section>
+    </div>
+  </div>
+
+  <div class="stack">
+    <section class="card">
+      <div class="card-head"><h3>Pipeline by stage</h3><a class="small" href="/admin/leads">Leads →</a></div>
+      <div class="card-body">
+        <div class="meter-list">
+          <% stages.forEach(function (s) { %>
+          <div class="meter-row">
+            <div class="row-between"><a href="/admin/leads?status=<%= s.status %>" class="strong"><%= h.humanize(s.status) %> <span class="muted">(<%= s.n %>)</span></a><span><%= h.inrCompact(s.value) %></span></div>
+            <div class="meter" role="img" aria-label="<%= h.humanize(s.status) %>: <%= h.inrShort(s.value) %>"><span style="width:<%= Math.round(s.value / maxStage * 100) %>%"></span></div>
+          </div>
+          <% }) %>
+        </div>
+      </div>
+    </section>
+
+    <% if (pendingPayments.length) { %>
+    <section class="card">
+      <div class="card-head"><h3>Payments to verify</h3><a class="small" href="/admin/payments?status=pending">All →</a></div>
+      <ul class="list">
+        <% pendingPayments.forEach(function (p) { %>
+        <li><div class="grow"><span class="title"><%= h.inr(p.amount) %> · <%= p.client_name %></span><span class="meta"><%= h.method(p.method) %> · ref <%= p.reference %> · <%= p.invoice_number %></span></div>
+          <form method="post" action="/admin/payments/<%= p.id %>/status" class="inline"><%- include('../partials/csrf') %><button class="btn btn-success btn-sm" name="status" value="confirmed">Confirm</button></form></li>
+        <% }) %>
+      </ul>
+    </section>
+    <% } %>
+
+    <section class="card">
+      <div class="card-head"><h3>Open support</h3><a class="small" href="/admin/tickets">All →</a></div>
+      <% if (!openTickets.length) { %><div class="empty"><b>Inbox zero</b>No open client requests.</div><% } else { %>
+      <ul class="list">
+        <% openTickets.forEach(function (t) { %>
+        <li><div class="grow"><a class="title" href="/admin/tickets/<%= t.id %>"><%= t.subject %></a><span class="meta"><%= t.client_name %> · <%= h.ago(t.last_reply_at) %></span></div><%- h.badge(t.priority) %></li>
+        <% }) %>
+      </ul><% } %>
+    </section>
+
+    <% if (dueSoon.length) { %>
+    <section class="card">
+      <div class="card-head"><h3>Projects due this week</h3></div>
+      <ul class="list">
+        <% dueSoon.forEach(function (p) { %>
+        <li><div class="grow"><a class="title" href="/admin/projects/<%= p.id %>"><%= p.name %></a><span class="meta"><%= p.client_name %> · due <%= h.date(p.due_date) %><%= p.due_date < today ? ' (late)' : '' %></span></div><span class="small"><%= p.progress %>%</span></li>
+        <% }) %>
+      </ul>
+    </section>
+    <% } %>
+
+    <% if (opportunities.length) { %>
+    <section class="card">
+      <div class="card-head"><h3>Retainer opportunities</h3></div>
+      <div class="card-body" style="padding-bottom:6px"><p class="small muted mb-8">Delivered projects with no maintenance or growth plan. Offer AMC, hosting, SEO or social media.</p></div>
+      <ul class="list">
+        <% opportunities.forEach(function (o) { %>
+        <li><div class="grow"><span class="title"><%= o.client_name %></span><span class="meta"><%= o.name %></span></div>
+          <a class="btn btn-ghost btn-sm" href="/admin/retainers/new?client_id=<%= o.client_id %>&project_id=<%= o.id %>&title=<%= encodeURIComponent('Maintenance & support — ' + o.name) %>&item=<%= encodeURIComponent('Annual maintenance, hosting & support — ' + o.name) %>">Offer plan</a></li>
+        <% }) %>
+      </ul>
+    </section>
+    <% } %>
+  </div>
+</div>

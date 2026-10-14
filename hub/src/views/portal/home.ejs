@@ -1,0 +1,46 @@
+<div class="page-head">
+  <div><h1>Hello, <%= user.name.split(' ')[0] %></h1><div class="sub">Everything about your work with Haptags, in one place.</div></div>
+</div>
+
+<% if (balance > 0) { %>
+<section class="card card-pad mb-16" style="border-color:<%= unpaid.some(function (i) { return i.status === 'overdue'; }) ? '#f6c7d0' : 'var(--border)' %>">
+  <div class="row-between">
+    <div><div class="muted small">Amount due</div><div style="font:700 28px var(--font-body)"><%= h.inr(balance) %></div><div class="small muted"><%= unpaid.length %> open invoice<%= unpaid.length === 1 ? '' : 's' %></div></div>
+    <% if (unpaid.length === 1) { %><a class="btn btn-lg" href="/i/<%= unpaid[0].public_token %>#pay">Pay now</a><% } else { %><a class="btn btn-lg" href="/portal/invoices">View & pay</a><% } %>
+  </div>
+</section>
+<% } %>
+
+<% if (quotes.length) { %>
+<section class="card mb-16">
+  <div class="card-head"><h3>Quotations awaiting your approval</h3></div>
+  <ul class="list"><% quotes.forEach(function (q) { %><li><div class="grow"><span class="title"><%= q.title %></span><span class="meta mono"><%= q.number %></span></div><b><%= h.inrShort(q.total) %></b><a class="btn btn-sm" href="/q/<%= q.public_token %>">Review</a></li><% }) %></ul>
+</section>
+<% } %>
+
+<div class="split">
+  <div class="stack">
+    <section class="card">
+      <div class="card-head"><h3>Active projects</h3><a class="small" href="/portal/projects">All →</a></div>
+      <% if (!projects.length) { %><div class="empty">No active projects right now.</div><% } else { %>
+      <ul class="list">
+        <% projects.forEach(function (p) { %>
+        <li><div class="grow"><a class="title" href="/portal/projects/<%= p.id %>"><%= p.name %></a><span class="meta"><%= h.humanize(p.status) %><%= p.due_date ? ' · target ' + h.date(p.due_date) : '' %></span></div>
+          <div class="progress" style="width:110px"><span style="width:<%= p.progress %>%"></span></div><span class="small"><%= p.progress %>%</span></li>
+        <% }) %>
+      </ul><% } %>
+    </section>
+    <section class="card">
+      <div class="card-head"><h3>Latest updates</h3></div>
+      <div class="card-body">
+        <% if (!updates.length) { %><p class="muted small mb-0">Updates from the team will appear here.</p><% } else { %>
+        <ul class="timeline"><% updates.forEach(function (u) { %><li class="k-email"><div class="meta"><a href="/portal/projects/<%= u.project_id %>"><%= u.project_name %></a> · <%= h.ago(u.created_at) %></div><div class="body"><%= u.body %></div></li><% }) %></ul><% } %>
+      </div>
+    </section>
+  </div>
+  <section class="card">
+    <div class="card-head"><h3>Your requests</h3><a class="small" href="/portal/tickets/new">+ New</a></div>
+    <% if (!tickets.length) { %><div class="empty">Need a change or have a question? <a href="/portal/tickets/new">Raise a request</a>.</div><% } else { %>
+    <ul class="list"><% tickets.forEach(function (t) { %><li><div class="grow"><a class="title" href="/portal/tickets/<%= t.id %>"><%= t.subject %></a><span class="meta"><%= h.ago(t.last_reply_at) %></span></div><%- h.badge(t.status, t.status === 'awaiting_client' ? 'Your reply needed' : t.status === 'open' ? 'With our team' : null) %></li><% }) %></ul><% } %>
+  </section>
+</div>
