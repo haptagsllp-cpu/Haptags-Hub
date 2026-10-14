@@ -1,0 +1,19 @@
+<div class="card card-pad auth-card">
+  <h1>Sign in</h1>
+  <p class="muted">Clients and the Haptags team sign in here.</p>
+  <% if (error) { %><div class="flash flash-error" role="alert"><%- h.icon('alert') %><span><%= error %></span></div><% } %>
+  <form method="post" action="/login">
+    <%- include('../partials/csrf') %>
+    <input type="hidden" name="next" value="<%= next %>">
+    <div class="field">
+      <label for="email">Email</label>
+      <input id="email" name="email" type="email" autocomplete="username" value="<%= email %>" required autofocus>
+    </div>
+    <div class="field">
+      <div class="row-between"><label for="password">Password</label><a class="small" href="/forgot">Forgot password?</a></div>
+      <input id="password" name="password" type="password" autocomplete="current-password" required>
+    </div>
+    <button class="btn btn-block btn-lg" type="submit">Sign in</button>
+  </form>
+  <p class="small muted mt-16 mb-0">No account yet? Your Haptags contact will send you an invite. <a href="/start">Start a new project →</a></p>
+</div>

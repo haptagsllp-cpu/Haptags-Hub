@@ -1,0 +1,21 @@
+<% const editing = Boolean(client.id); %>
+<div class="crumbs"><a href="/admin/clients">Clients</a> / <%= editing ? client.name : 'New' %></div>
+<div class="page-head"><h1><%= editing ? 'Edit client' : 'Add a client' %></h1></div>
+<form method="post" action="<%= editing ? '/admin/clients/' + client.id : '/admin/clients' %>" class="card card-pad" style="max-width:860px" novalidate>
+  <%- include('../../partials/csrf') %>
+  <div class="form-grid">
+    <div class="field"><label for="name">Business / client name *</label><input id="name" name="name" type="text" value="<%= client.name || '' %>" <%- errors.name ? 'aria-invalid="true"' : '' %> required autofocus><% if (errors.name) { %><div class="error"><%= errors.name %></div><% } %></div>
+    <div class="field"><label for="contact_name">Contact person</label><input id="contact_name" name="contact_name" type="text" value="<%= client.contact_name || '' %>"></div>
+    <div class="field"><label for="email">Billing email</label><input id="email" name="email" type="email" value="<%= client.email || '' %>" <%- errors.email ? 'aria-invalid="true"' : '' %>><div class="hint">Invoices, receipts and reminders go here.</div><% if (errors.email) { %><div class="error"><%= errors.email %></div><% } %></div>
+    <div class="field"><label for="phone">Phone / WhatsApp</label><input id="phone" name="phone" type="tel" value="<%= client.phone || '' %>"></div>
+    <div class="field"><label for="gstin">GSTIN</label><input id="gstin" name="gstin" type="text" class="mono" value="<%= client.gstin || '' %>" maxlength="15" <%- errors.gstin ? 'aria-invalid="true"' : '' %>><div class="hint">Leave blank for unregistered clients. State is detected from the GSTIN.</div><% if (errors.gstin) { %><div class="error"><%= errors.gstin %></div><% } %></div>
+    <div class="field"><label for="state">State (place of supply)</label><select id="state" name="state"><option value="">— Select —</option><% h.C.STATES.forEach(function (s) { %><option value="<%= s[1] %>" <%= h.selected(client.state, s[1]) %>><%= s[1] %></option><% }) %></select><div class="hint">Same state as Haptags → CGST+SGST. Other state → IGST.</div></div>
+    <div class="field full"><label for="address">Address</label><textarea id="address" name="address" rows="2"><%= client.address || '' %></textarea></div>
+    <div class="field"><label for="city">City</label><input id="city" name="city" type="text" value="<%= client.city || '' %>"></div>
+    <div class="field"><label for="pincode">PIN code</label><input id="pincode" name="pincode" type="text" inputmode="numeric" value="<%= client.pincode || '' %>"></div>
+    <div class="field"><label for="country">Country</label><input id="country" name="country" type="text" value="<%= client.country || 'India' %>"></div>
+    <div class="field"><label for="status">Status</label><select id="status" name="status"><option value="active" <%= h.selected(client.status, 'active') %>>Active</option><option value="inactive" <%= h.selected(client.status, 'inactive') %>>Inactive</option></select></div>
+    <div class="field full"><label for="notes">Internal notes</label><textarea id="notes" name="notes" rows="3"><%= client.notes || '' %></textarea></div>
+  </div>
+  <div class="form-actions"><button class="btn" type="submit"><%= editing ? 'Save changes' : 'Add client' %></button><a class="btn btn-ghost" href="<%= editing ? '/admin/clients/' + client.id : '/admin/clients' %>">Cancel</a></div>
+</form>

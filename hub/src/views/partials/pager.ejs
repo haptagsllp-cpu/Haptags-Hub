@@ -1,0 +1,7 @@
+<% if (hasPrev || hasNext) { const q = Object.assign({}, locals.pagerQuery || {}); const base = locals.pagerBase; %>
+<div class="pager">
+  <span><% if (hasPrev) { %><a class="btn btn-ghost btn-sm" href="<%= h.qs(base, Object.assign({}, q, { page: page - 1 })) %>">← Newer</a><% } %></span>
+  <span class="muted small">Page <%= page %></span>
+  <span><% if (hasNext) { %><a class="btn btn-ghost btn-sm" href="<%= h.qs(base, Object.assign({}, q, { page: page + 1 })) %>">Older →</a><% } %></span>
+</div>
+<% } %>

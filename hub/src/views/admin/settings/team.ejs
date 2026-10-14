@@ -1,0 +1,41 @@
+<div class="page-head"><div><h1>Team</h1><div class="sub">Staff can manage leads, clients, projects, billing and support. Admins can also change settings and the team.</div></div></div>
+<% if (inviteLink) { %>
+  <div class="flash flash-<%= inviteLink.sent ? 'success' : 'info' %>" style="display:block">
+    <% if (inviteLink.sent) { %>Invite emailed to <%= inviteLink.name %>.<% } else { %>Email isn’t set up — send this link to <%= inviteLink.name %>:<% } %>
+    <div class="copy-field mt-8"><input id="t-link" type="text" readonly value="<%= inviteLink.link %>" aria-label="Invite link"><button class="btn btn-ghost btn-sm" data-copy="#t-link"><%- h.icon('copy', 14) %></button></div>
+  </div>
+<% } %>
+<div class="split">
+  <div class="card">
+    <div class="table-wrap"><table class="table">
+      <thead><tr><th>Name</th><th>Role</th><th>Last sign-in</th><th>Status</th><th></th></tr></thead>
+      <tbody>
+        <% users.forEach(function (u) { const locked = u.role === 'owner' || u.id === user.id; %>
+        <tr>
+          <td><b><%= u.name %></b><span class="sub"><%= u.email %></span></td>
+          <td>
+            <% if (locked) { %><%= h.humanize(u.role) %><% } else { %>
+            <form method="post" action="/admin/team/<%= u.id %>" class="inline"><%- include('../../partials/csrf') %><input type="hidden" name="action" value="role">
+              <select name="role" data-autosubmit aria-label="Role" style="width:auto;padding:5px 8px"><option value="staff" <%= h.selected(u.role, 'staff') %>>Staff</option><option value="admin" <%= h.selected(u.role, 'admin') %>>Admin</option></select></form>
+            <% } %>
+          </td>
+          <td class="small"><%= u.last_login_at ? h.ago(u.last_login_at) : (u.password_hash ? 'Never' : 'Invite pending') %></td>
+          <td><%- h.badge(u.is_active ? 'active' : 'inactive', u.is_active ? 'Active' : 'Disabled') %></td>
+          <td class="nowrap"><% if (!locked) { %>
+            <form method="post" action="/admin/team/<%= u.id %>" class="inline"><%- include('../../partials/csrf') %><button class="btn btn-ghost btn-sm" name="action" value="resend">New link</button></form>
+            <form method="post" action="/admin/team/<%= u.id %>" class="inline"><%- include('../../partials/csrf') %><button class="btn btn-ghost btn-sm" name="action" value="toggle"><%= u.is_active ? 'Disable' : 'Enable' %></button></form>
+          <% } %></td>
+        </tr>
+        <% }) %>
+      </tbody>
+    </table></div>
+  </div>
+  <form method="post" action="/admin/team" class="card card-pad">
+    <%- include('../../partials/csrf') %>
+    <h3>Add a team member</h3>
+    <div class="field"><label for="tm-name">Name</label><input id="tm-name" name="name" type="text" required></div>
+    <div class="field"><label for="tm-email">Work email</label><input id="tm-email" name="email" type="email" required></div>
+    <div class="field"><label for="tm-role">Role</label><select id="tm-role" name="role"><option value="staff">Staff</option><option value="admin">Admin</option></select></div>
+    <button class="btn btn-block" type="submit">Send invite</button>
+  </form>
+</div>

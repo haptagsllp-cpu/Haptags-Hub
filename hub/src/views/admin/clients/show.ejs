@@ -1,0 +1,115 @@
+<% const wa = h.waLink(client.phone, 'Hi ' + (client.contact_name || client.name).split(' ')[0] + ', '); %>
+<div class="crumbs"><a href="/admin/clients">Clients</a> / <%= client.name %></div>
+<div class="page-head">
+  <div>
+    <h1><%= client.name %> <% if (client.status !== 'active') { %><%- h.badge('inactive') %><% } %></h1>
+    <div class="sub"><%= [client.contact_name, client.city, client.state].filter(Boolean).join(' · ') %><% if (lead) { %> · from lead <a href="/admin/leads/<%= lead.id %>">#<%= lead.id %></a><% } %></div>
+  </div>
+  <div class="actions">
+    <% if (wa) { %><a class="btn btn-wa" href="<%= wa %>" target="_blank" rel="noopener"><%- h.icon('whatsapp', 16) %></a><% } %>
+    <a class="btn btn-ghost" href="/admin/clients/<%= client.id %>/edit"><%- h.icon('edit', 16) %> Edit</a>
+    <a class="btn btn-ghost" href="/admin/projects/new?client_id=<%= client.id %>">New project</a>
+    <a class="btn btn-ghost" href="/admin/quotes/new?client_id=<%= client.id %>">New quote</a>
+    <a class="btn" href="/admin/invoices/new?client_id=<%= client.id %>">New invoice</a>
+  </div>
+</div>
+
+<div class="stats">
+  <div class="stat"><div class="label">Total billed</div><div class="value"><%= h.inrShort(bal.billed) %></div></div>
+  <div class="stat"><div class="label">Received</div><div class="value"><%= h.inrShort(bal.paid) %></div></div>
+  <div class="stat"><div class="label">Outstanding</div><div class="value <%= bal.due > 0 ? 'down' : '' %>"><%= h.inrShort(bal.due) %></div></div>
+  <div class="stat"><div class="label">Recurring</div><div class="value"><%= retainers.filter(function (r) { return r.status === 'active'; }).length %></div><div class="delta">active retainer(s)</div></div>
+</div>
+
+<div class="split">
+  <div class="stack">
+    <section class="card">
+      <div class="card-head"><h3>Invoices</h3><a class="small" href="/admin/invoices/new?client_id=<%= client.id %>">+ New</a></div>
+      <% if (!invoices.length) { %><div class="empty">No invoices yet.</div><% } else { %>
+      <div class="table-wrap"><table class="table"><thead><tr><th>Number</th><th>Date</th><th>Status</th><th class="num">Total</th><th class="num">Balance</th></tr></thead><tbody>
+        <% invoices.forEach(function (i) { %><tr><td><a class="strong mono" href="/admin/invoices/<%= i.id %>"><%= i.number || 'Draft' %></a><span class="sub"><%= i.title || '' %></span></td><td class="nowrap"><%= h.date(i.issue_date) %></td><td><%- h.badge(i.status) %></td><td class="num"><%= h.inr(i.total) %></td><td class="num"><%= ['void', 'draft'].includes(i.status) ? '—' : h.inr(Number(i.total) - Number(i.amount_paid)) %></td></tr><% }) %>
+      </tbody></table></div><% } %>
+    </section>
+
+    <section class="card">
+      <div class="card-head"><h3>Projects</h3><a class="small" href="/admin/projects/new?client_id=<%= client.id %>">+ New</a></div>
+      <% if (!projects.length) { %><div class="empty">No projects yet.</div><% } else { %>
+      <ul class="list"><% projects.forEach(function (p) { %><li><div class="grow"><a class="title" href="/admin/projects/<%= p.id %>"><%= p.name %></a><span class="meta"><%= h.service(p.service) || '' %><%= p.due_date ? ' · due ' + h.date(p.due_date) : '' %></span></div><div class="progress <%= p.status === 'completed' ? 'done' : '' %>" style="width:90px"><span style="width:<%= p.progress %>%"></span></div><%- h.badge(p.status) %></li><% }) %></ul>
+      <% } %>
+    </section>
+
+    <div class="grid grid-2">
+      <section class="card">
+        <div class="card-head"><h3>Quotations</h3><a class="small" href="/admin/quotes/new?client_id=<%= client.id %>">+ New</a></div>
+        <% if (!quotes.length) { %><div class="empty">None yet.</div><% } else { %>
+        <ul class="list"><% quotes.forEach(function (q) { %><li><div class="grow"><a class="title" href="/admin/quotes/<%= q.id %>"><%= q.title %></a><span class="meta mono"><%= q.number %></span></div><span class="small"><%= h.inrShort(q.total) %></span><%- h.badge(q.status) %></li><% }) %></ul><% } %>
+      </section>
+      <section class="card">
+        <div class="card-head"><h3>Retainers</h3><a class="small" href="/admin/retainers/new?client_id=<%= client.id %>">+ New</a></div>
+        <% if (!retainers.length) { %><div class="empty">No recurring billing. <a href="/admin/retainers/new?client_id=<%= client.id %>">Offer a plan</a>.</div><% } else { %>
+        <ul class="list"><% retainers.forEach(function (r) { %><li><div class="grow"><a class="title" href="/admin/retainers/<%= r.id %>"><%= r.title %></a><span class="meta"><%= h.humanize(r.interval) %> · next <%= h.date(r.next_invoice_date) %></span></div><%- h.badge(r.status) %></li><% }) %></ul><% } %>
+      </section>
+    </div>
+
+    <section class="card" id="activity">
+      <div class="card-head"><h3>Notes & activity</h3></div>
+      <div class="card-body">
+        <form method="post" action="/admin/clients/<%= client.id %>/note" class="row mb-16" style="align-items:flex-start">
+          <%- include('../../partials/csrf') %>
+          <textarea name="body" rows="2" placeholder="Add a note…" style="flex:1;min-height:44px" aria-label="Note"></textarea>
+          <button class="btn btn-sm" type="submit">Add</button>
+        </form>
+        <%- include('../../partials/timeline') %>
+      </div>
+    </section>
+  </div>
+
+  <div class="stack">
+    <section class="card">
+      <div class="card-head"><h3>Details</h3></div>
+      <div class="card-body">
+        <dl class="dl" style="grid-template-columns:90px 1fr">
+          <dt>Email</dt><dd><%= client.email || '—' %></dd>
+          <dt>Phone</dt><dd><%= client.phone || '—' %></dd>
+          <dt>GSTIN</dt><dd class="mono"><%= client.gstin || '—' %></dd>
+          <dt>Address</dt><dd><%= [client.address, client.city, client.state, client.pincode].filter(Boolean).join(', ') || '—' %></dd>
+        </dl>
+        <% if (client.notes) { %><hr><div class="small" style="white-space:pre-wrap"><%= client.notes %></div><% } %>
+      </div>
+    </section>
+
+    <section class="card" id="portal">
+      <div class="card-head"><h3>Client portal access</h3></div>
+      <div class="card-body">
+        <% if (inviteLink) { %>
+          <div class="flash flash-<%= inviteLink.sent ? 'success' : 'info' %>" style="display:block">
+            <% if (inviteLink.sent) { %>Invite emailed to <%= inviteLink.name %>.<% } else { %>Email isn’t set up, so share this link with <%= inviteLink.name %> (WhatsApp works):<% } %>
+            <div class="copy-field mt-8"><input id="invite-link" type="text" readonly value="<%= inviteLink.link %>" aria-label="Invite link"><button class="btn btn-ghost btn-sm" data-copy="#invite-link"><%- h.icon('copy', 14) %></button></div>
+          </div>
+        <% } %>
+        <% if (!users.length) { %><p class="small muted">No one at <%= client.name %> can sign in yet. Invite them to track projects, pay invoices and raise requests.</p><% } %>
+        <% users.forEach(function (u) { %>
+          <div class="row-between mb-8">
+            <div><b><%= u.name %></b><div class="small muted"><%= u.email %> · <%= u.last_login_at ? 'last seen ' + h.ago(u.last_login_at) : (u.password_hash ? 'never signed in' : 'invite pending') %></div></div>
+            <div class="row">
+              <form method="post" action="/admin/clients/<%= client.id %>/users/<%= u.id %>/resend" class="inline"><%- include('../../partials/csrf') %><button class="btn btn-ghost btn-sm" title="Send a new set-password link">Link</button></form>
+              <form method="post" action="/admin/clients/<%= client.id %>/users/<%= u.id %>/toggle" class="inline"><%- include('../../partials/csrf') %><button class="btn btn-ghost btn-sm"><%= u.is_active ? 'Disable' : 'Enable' %></button></form>
+            </div>
+          </div>
+        <% }) %>
+        <form method="post" action="/admin/clients/<%= client.id %>/users" class="mt-16">
+          <%- include('../../partials/csrf') %>
+          <div class="field mb-8"><label for="pu-name">Name</label><input id="pu-name" name="name" type="text" value="<%= users.length ? '' : (client.contact_name || '') %>" required></div>
+          <div class="field mb-8"><label for="pu-email">Email</label><input id="pu-email" name="email" type="email" value="<%= users.length ? '' : (client.email || '') %>" required></div>
+          <button class="btn btn-block" type="submit"><%- h.icon('send', 16) %> Invite to portal</button>
+        </form>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-head"><h3>Support</h3><a class="small" href="/admin/tickets/new?client_id=<%= client.id %>">+ New</a></div>
+      <% if (!tickets.length) { %><div class="empty">No requests.</div><% } else { %>
+      <ul class="list"><% tickets.forEach(function (t) { %><li><div class="grow"><a class="title" href="/admin/tickets/<%= t.id %>"><%= t.subject %></a><span class="meta"><%= h.ago(t.last_reply_at) %></span></div><%- h.badge(t.status) %></li><% }) %></ul><% } %>
+    </section>
+  </div>
+</div>

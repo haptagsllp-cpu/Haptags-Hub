@@ -1,0 +1,57 @@
+<% const wa = h.waLink(client.phone, 'Hi ' + (client.contact_name || client.name).split(' ')[0] + ', here is our quotation for ' + doc.title + ' (' + h.inr(doc.total) + '). You can review and accept it here: ' + link); %>
+<div class="crumbs"><a href="/admin/quotes">Quotations</a> / <%= doc.number %></div>
+<div class="page-head">
+  <div>
+    <h1><%= doc.title %> <%- h.badge(doc.status) %></h1>
+    <div class="sub mono"><%= doc.number %></div>
+  </div>
+  <div class="actions">
+    <% if (['draft', 'sent'].includes(doc.status)) { %><a class="btn btn-ghost" href="/admin/quotes/<%= doc.id %>/edit"><%- h.icon('edit', 16) %> Edit</a><% } %>
+    <a class="btn btn-ghost" href="/q/<%= doc.public_token %>" target="_blank" rel="noopener"><%- h.icon('external', 16) %> Preview</a>
+    <% if (['draft', 'sent'].includes(doc.status)) { %>
+      <form method="post" action="/admin/quotes/<%= doc.id %>/send" class="inline"><%- include('../../partials/csrf') %><button class="btn" type="submit"><%- h.icon('send', 16) %> <%= doc.status === 'sent' ? 'Resend' : 'Send to client' %></button></form>
+    <% } %>
+    <% if (['accepted', 'sent'].includes(doc.status) && !doc.invoice_id) { %>
+      <form method="post" action="/admin/quotes/<%= doc.id %>/convert" class="inline"><%- include('../../partials/csrf') %><button class="btn btn-success" type="submit"><%- h.icon('invoices', 16) %> Convert to invoice</button></form>
+    <% } %>
+    <% if (doc.invoice_id) { %><a class="btn btn-ghost" href="/admin/invoices/<%= doc.invoice_id %>">View invoice</a><% } %>
+  </div>
+</div>
+
+<div class="split">
+  <div>
+    <div class="table-wrap"><%- include('../../partials/document', { kind: 'quote' }) %></div>
+  </div>
+  <div class="stack">
+    <section class="card">
+      <div class="card-head"><h3>Share</h3></div>
+      <div class="card-body">
+        <p class="small muted mb-8">Anyone with this link can view and accept the quotation<%= doc.status === 'draft' ? ' once it’s sent' : '' %>.</p>
+        <div class="copy-field mb-8"><input id="qlink" type="text" readonly value="<%= link %>" aria-label="Quotation link"><button class="btn btn-ghost btn-sm" data-copy="#qlink"><%- h.icon('copy', 14) %></button></div>
+        <% if (wa && doc.status !== 'draft') { %><a class="btn btn-wa btn-block" href="<%= wa %>" target="_blank" rel="noopener"><%- h.icon('whatsapp', 16) %> Send on WhatsApp</a><% } %>
+      </div>
+    </section>
+    <section class="card">
+      <div class="card-head"><h3>Status</h3></div>
+      <div class="card-body">
+        <% if (doc.responded_by) { %><p class="small"><%= h.humanize(doc.status) %> by <b><%= doc.responded_by %></b><br><span class="muted"><%= h.dateTime(doc.responded_at) %></span></p><% } %>
+        <% if (doc.client_comment) { %><p class="small">“<%= doc.client_comment %>”</p><% } %>
+        <% if (doc.status !== 'invoiced') { %>
+        <form method="post" action="/admin/quotes/<%= doc.id %>/status" class="row">
+          <%- include('../../partials/csrf') %>
+          <span class="small muted">Client replied offline?</span>
+          <button class="btn btn-ghost btn-sm" name="status" value="accepted">Mark accepted</button>
+          <button class="btn btn-ghost btn-sm" name="status" value="declined">Mark declined</button>
+        </form>
+        <% } %>
+      </div>
+    </section>
+    <section class="card">
+      <div class="card-head"><h3>History</h3></div>
+      <div class="card-body"><%- include('../../partials/timeline') %></div>
+    </section>
+    <% if (doc.status === 'draft') { %>
+    <form method="post" action="/admin/quotes/<%= doc.id %>/delete" data-confirm="Delete this draft quotation?"><%- include('../../partials/csrf') %><button class="btn btn-danger btn-sm" type="submit"><%- h.icon('trash', 14) %> Delete draft</button></form>
+    <% } %>
+  </div>
+</div>

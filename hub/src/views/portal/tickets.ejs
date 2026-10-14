@@ -1,0 +1,13 @@
+<div class="page-head">
+  <div><h1>Support</h1><div class="sub">Changes, questions and issues — we reply here and by email.</div></div>
+  <div class="actions"><a class="btn" href="/portal/tickets/new"><%- h.icon('plus', 16) %> New request</a></div>
+</div>
+<div class="card">
+  <% if (!tickets.length) { %><div class="empty"><b>No requests yet</b><a href="/portal/tickets/new">Raise your first request</a>.</div><% } else { %>
+  <ul class="list">
+    <% tickets.forEach(function (t) { %>
+    <li><div class="grow"><a class="title" href="/portal/tickets/<%= t.id %>">#<%= t.id %> · <%= t.subject %></a><span class="meta"><%= t.project_name ? t.project_name + ' · ' : '' %>updated <%= h.ago(t.last_reply_at) %></span></div>
+      <%- h.badge(t.status, t.status === 'awaiting_client' ? 'Your reply needed' : t.status === 'open' ? 'With our team' : null) %></li>
+    <% }) %>
+  </ul><% } %>
+</div>

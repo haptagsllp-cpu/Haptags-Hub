@@ -1,0 +1,29 @@
+<div class="page-head">
+  <div><h1>Projects</h1><div class="sub">Delivery status across all clients.</div></div>
+  <div class="actions"><a class="btn" href="/admin/projects/new"><%- h.icon('plus', 16) %> New project</a></div>
+</div>
+<nav class="tabs">
+  <% [['active', 'Active'], ['planning', 'Planning'], ['in_progress', 'In progress'], ['review', 'Review'], ['on_hold', 'On hold'], ['completed', 'Completed'], ['all', 'All']].forEach(function (t) { %>
+    <a href="/admin/projects?status=<%= t[0] %>" class="<%= status === t[0] ? 'active' : '' %>"><%= t[1] %></a>
+  <% }) %>
+</nav>
+<div class="card">
+  <% if (!rows.length) { %><div class="empty"><b>No projects</b>Create one when a quote is accepted.</div><% } else { %>
+  <div class="table-wrap"><table class="table">
+    <thead><tr><th>Project</th><th>Client</th><th>Status</th><th style="width:160px">Progress</th><th>Due</th><th class="num">Budget</th></tr></thead>
+    <tbody>
+      <% rows.forEach(function (p) { const late = p.due_date && p.due_date < h.today() && !['completed', 'cancelled'].includes(p.status); %>
+      <tr>
+        <td><a class="strong" href="/admin/projects/<%= p.id %>"><%= p.name %></a><span class="sub"><%= h.service(p.service) || '' %></span></td>
+        <td><a href="/admin/clients/<%= p.client_id %>"><%= p.client_name %></a></td>
+        <td><%- h.badge(p.status) %></td>
+        <td><div class="row" style="flex-wrap:nowrap"><div class="progress <%= p.status === 'completed' ? 'done' : '' %>" style="flex:1"><span style="width:<%= p.progress %>%"></span></div><span class="small"><%= p.progress %>%</span></div></td>
+        <td class="nowrap <%= late ? 'down' : '' %>"><%= p.due_date ? h.date(p.due_date) : '—' %></td>
+        <td class="num"><%= Number(p.budget) ? h.inrShort(p.budget) : '—' %></td>
+      </tr>
+      <% }) %>
+    </tbody>
+  </table></div>
+  <%- include('../../partials/pager', { pagerBase: '/admin/projects', pagerQuery: { status: status } }) %>
+  <% } %>
+</div>

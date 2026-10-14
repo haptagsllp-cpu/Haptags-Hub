@@ -1,0 +1,89 @@
+<div class="doc-actions no-print">
+  <div class="row">
+    <% if (user && user.role !== 'client') { %><a class="btn btn-ghost btn-sm" href="/admin/invoices/<%= doc.id %>">← Back to Hub</a><% } else if (user) { %><a class="btn btn-ghost btn-sm" href="/portal/invoices">← My invoices</a><% } %>
+    <% if (doc.status === 'draft') { %><span class="badge tone-amber">Draft preview — not visible to the client yet</span><% } %>
+  </div>
+  <div class="row">
+    <% if (payable) { %><a class="btn btn-sm" href="#pay">Pay <%= h.inr(balance) %></a><% } %>
+    <button class="btn btn-ghost btn-sm" type="button" data-print><%- h.icon('download', 16) %> Download PDF</button>
+  </div>
+</div>
+
+<% if (paid) { %>
+<div class="pay-box no-print" style="margin:0 auto 16px"><div class="flash flash-success"><%- h.icon('check') %><span>Payment successful — thank you! A receipt is on its way to your email.</span></div></div>
+<% } %>
+
+<%- include('../partials/document', { kind: 'invoice' }) %>
+
+<% if (payments.length) { %>
+<div class="pay-box no-print">
+  <div class="card">
+    <div class="card-head"><h3>Payments</h3></div>
+    <ul class="list">
+      <% payments.forEach(function (p) { %>
+      <li><div class="grow"><span class="title"><%= h.inr(p.amount) %><%= Number(p.tds) ? ' + TDS ' + h.inr(p.tds) : '' %></span><span class="meta"><%= h.date(p.paid_on) %> · <%= h.method(p.method) %><%= p.reference ? ' · ' + p.reference : '' %></span></div><%- h.badge(p.status === 'pending' ? 'pending' : 'confirmed', p.status === 'pending' ? 'Being verified' : 'Received') %></li>
+      <% }) %>
+    </ul>
+  </div>
+</div>
+<% } %>
+
+<% if (payable) { %>
+<section class="pay-box no-print" id="pay">
+  <div class="card card-pad">
+    <div class="row-between mb-16">
+      <div><h2 class="mb-0">Pay <%= h.inr(balance) %></h2><div class="muted small">Due <%= h.date(doc.due_date) %> · Invoice <%= doc.number %></div></div>
+      <% if (doc.status === 'overdue') { %><%- h.badge('overdue', 'Overdue') %><% } %>
+    </div>
+    <div class="pay-grid">
+      <% if (razorpay) { %>
+      <div class="pay-opt">
+        <h3><%- h.icon('payments') %> Pay online</h3>
+        <p class="muted small">UPI, cards, net-banking and wallets via Razorpay. Your receipt is emailed instantly.</p>
+        <button class="btn btn-block btn-lg" id="pay-online" type="button" data-order-url="/i/<%= doc.public_token %>/razorpay-order" data-verify-url="/i/<%= doc.public_token %>/razorpay-verify">Pay <%= h.inr(balance) %> now</button>
+        <p id="pay-status" class="small muted mt-8 mb-0" aria-live="polite"></p>
+      </div>
+      <% } %>
+      <% if (upi) { %>
+      <div class="pay-opt">
+        <h3><%- h.icon('zap') %> Scan & pay by UPI</h3>
+        <div class="row" style="align-items:flex-start">
+          <img class="qr" src="<%= upi.qr %>" alt="UPI QR code for <%= h.inr(balance) %>">
+          <div class="small">
+            <p class="mb-8">Scan with GPay, PhonePe, Paytm or any UPI app. Amount is pre-filled.</p>
+            <p class="mb-8">UPI ID: <b class="mono"><%= upi.id %></b></p>
+            <a class="btn btn-ghost btn-sm" href="<%= upi.link %>">Open UPI app</a>
+          </div>
+        </div>
+      </div>
+      <% } %>
+      <% if (settings.bank_account_number) { %>
+      <div class="pay-opt">
+        <h3><%- h.icon('home') %> Bank transfer</h3>
+        <dl class="dl small" style="grid-template-columns:90px 1fr">
+          <dt>Name</dt><dd><%= settings.bank_account_name %></dd>
+          <dt>Account</dt><dd class="mono"><%= settings.bank_account_number %></dd>
+          <dt>IFSC</dt><dd class="mono"><%= settings.bank_ifsc %></dd>
+          <dt>Bank</dt><dd><%= settings.bank_name %></dd>
+        </dl>
+      </div>
+      <% } %>
+    </div>
+    <% if (upi || settings.bank_account_number) { %>
+    <details class="mt-16">
+      <summary class="strong" style="cursor:pointer">Paid by UPI or bank transfer? Tell us here</summary>
+      <form method="post" action="/i/<%= doc.public_token %>/report-payment" class="form-grid mt-16">
+        <%- include('../partials/csrf') %>
+        <div class="field"><label for="amount">Amount paid (₹)</label><input id="amount" name="amount" type="text" inputmode="decimal" value="<%= h.rupees(balance) %>" required></div>
+        <div class="field"><label for="reference">UPI ref / UTR number</label><input id="reference" name="reference" type="text" required placeholder="e.g. 4281 9921 0034"></div>
+        <div class="field"><label for="method">Method</label><select id="method" name="method"><option value="upi">UPI</option><option value="bank_transfer">Bank transfer</option></select></div>
+        <div class="field" style="align-self:end"><button class="btn btn-ghost btn-block" type="submit">Send payment details</button></div>
+      </form>
+    </details>
+    <% } %>
+    <% if (!razorpay && !upi && !settings.bank_account_number) { %>
+      <p class="muted mb-0">Please contact us at <a href="mailto:<%= settings.email %>"><%= settings.email %></a> or <%= settings.phone %> for payment details.</p>
+    <% } %>
+  </div>
+</section>
+<% } %>

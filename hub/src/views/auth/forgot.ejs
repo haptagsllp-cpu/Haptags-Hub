@@ -1,0 +1,14 @@
+<div class="card card-pad auth-card">
+  <h1>Reset your password</h1>
+  <% if (sent) { %>
+    <p>If an account exists for that email, we’ve sent a link to choose a new password. It works for 7 days.</p>
+    <a class="btn btn-ghost" href="/login">Back to sign in</a>
+  <% } else { %>
+    <p class="muted">Enter your email and we’ll send you a link to set a new password.</p>
+    <form method="post" action="/forgot">
+      <%- include('../partials/csrf') %>
+      <div class="field"><label for="email">Email</label><input id="email" name="email" type="email" autocomplete="email" required autofocus></div>
+      <button class="btn btn-block" type="submit">Send reset link</button>
+    </form>
+  <% } %>
+</div>

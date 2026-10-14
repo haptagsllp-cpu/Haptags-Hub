@@ -1,0 +1,19 @@
+<% const editing = Boolean(project.id); %>
+<div class="crumbs"><a href="/admin/projects">Projects</a> / <%= editing ? project.name : 'New' %></div>
+<div class="page-head"><h1><%= editing ? 'Edit project' : 'New project' %></h1></div>
+<form method="post" action="<%= editing ? '/admin/projects/' + project.id : '/admin/projects' %>" class="card card-pad" style="max-width:860px" novalidate>
+  <%- include('../../partials/csrf') %>
+  <div class="form-grid">
+    <div class="field"><label for="client_id">Client *</label><select id="client_id" name="client_id" <%- errors.client_id ? 'aria-invalid="true"' : '' %> required><option value="">— Select —</option><% clients.forEach(function (c) { %><option value="<%= c.id %>" <%= h.selected(project.client_id, c.id) %>><%= c.name %></option><% }) %></select><% if (errors.client_id) { %><div class="error"><%= errors.client_id %></div><% } %></div>
+    <div class="field"><label for="name">Project name *</label><input id="name" name="name" type="text" value="<%= project.name || '' %>" <%- errors.name ? 'aria-invalid="true"' : '' %> required><% if (errors.name) { %><div class="error"><%= errors.name %></div><% } %></div>
+    <div class="field"><label for="service">Service</label><select id="service" name="service"><option value="">—</option><% h.C.SERVICES.forEach(function (s) { %><option value="<%= s[0] %>" <%= h.selected(project.service, s[0]) %>><%= s[1] %></option><% }) %></select></div>
+    <div class="field"><label for="status">Status</label><select id="status" name="status"><% h.C.PROJECT_STATUSES.forEach(function (s) { %><option value="<%= s %>" <%= h.selected(project.status, s) %>><%= h.humanize(s) %></option><% }) %></select></div>
+    <div class="field"><label for="start_date">Start date</label><input id="start_date" name="start_date" type="date" value="<%= project.start_date || '' %>"></div>
+    <div class="field"><label for="due_date">Due date</label><input id="due_date" name="due_date" type="date" value="<%= project.due_date || '' %>"></div>
+    <div class="field"><label for="budget">Budget (₹, pre-tax)</label><input id="budget" name="budget" type="text" inputmode="decimal" value="<%= h.rupees(project.budget) %>"></div>
+    <div class="field"><label for="progress">Progress (%)</label><input id="progress" name="progress" type="number" min="0" max="100" value="<%= project.progress || 0 %>"></div>
+    <div class="field full"><label for="description">Scope / description</label><textarea id="description" name="description" rows="4"><%= project.description || '' %></textarea></div>
+    <% if (!editing) { %><div class="field full"><label class="check"><input type="checkbox" name="default_milestones" value="1" checked> Add standard milestones (Kick-off → Design → Build → Review → Launch)</label></div><% } %>
+  </div>
+  <div class="form-actions"><button class="btn" type="submit"><%= editing ? 'Save changes' : 'Create project' %></button><a class="btn btn-ghost" href="<%= editing ? '/admin/projects/' + project.id : '/admin/projects' %>">Cancel</a></div>
+</form>

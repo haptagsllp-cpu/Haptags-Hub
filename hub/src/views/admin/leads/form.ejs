@@ -1,0 +1,24 @@
+<% const editing = Boolean(lead.id); %>
+<div class="crumbs"><a href="/admin/leads">Leads</a> / <%= editing ? lead.name : 'New' %></div>
+<div class="page-head"><h1><%= editing ? 'Edit lead' : 'Add a lead' %></h1></div>
+
+<form method="post" action="<%= editing ? '/admin/leads/' + lead.id : '/admin/leads' %>" class="card card-pad" style="max-width:860px" novalidate>
+  <%- include('../../partials/csrf') %>
+  <div class="form-grid">
+    <div class="field"><label for="name">Name *</label><input id="name" name="name" type="text" value="<%= lead.name || '' %>" <%- errors.name ? 'aria-invalid="true"' : '' %> required autofocus><% if (errors.name) { %><div class="error"><%= errors.name %></div><% } %></div>
+    <div class="field"><label for="company">Company</label><input id="company" name="company" type="text" value="<%= lead.company || '' %>"></div>
+    <div class="field"><label for="phone">Phone / WhatsApp</label><input id="phone" name="phone" type="tel" value="<%= lead.phone || '' %>" <%- errors.phone ? 'aria-invalid="true"' : '' %>><% if (errors.phone) { %><div class="error"><%= errors.phone %></div><% } %></div>
+    <div class="field"><label for="email">Email</label><input id="email" name="email" type="email" value="<%= lead.email || '' %>" <%- errors.email ? 'aria-invalid="true"' : '' %>><% if (errors.email) { %><div class="error"><%= errors.email %></div><% } %></div>
+    <div class="field"><label for="service">Service</label><select id="service" name="service"><option value="">—</option><% h.C.SERVICES.forEach(function (s) { %><option value="<%= s[0] %>" <%= h.selected(lead.service, s[0]) %>><%= s[1] %></option><% }) %></select></div>
+    <div class="field"><label for="source">Source</label><select id="source" name="source"><% h.C.LEAD_SOURCES.forEach(function (s) { %><option value="<%= s %>" <%= h.selected(lead.source, s) %>><%= h.humanize(s) %></option><% }) %></select></div>
+    <div class="field"><label for="budget">Budget</label><select id="budget" name="budget"><option value="">—</option><% h.C.BUDGETS.forEach(function (b) { %><option value="<%= b[0] %>" <%= h.selected(lead.budget, b[0]) %>><%= b[1] %></option><% }) %></select></div>
+    <div class="field"><label for="timeline">Timeline</label><select id="timeline" name="timeline"><option value="">—</option><% h.C.TIMELINES.forEach(function (t) { %><option value="<%= t[0] %>" <%= h.selected(lead.timeline, t[0]) %>><%= t[1] %></option><% }) %></select></div>
+    <div class="field"><label for="website">Website</label><input id="website" name="website" type="text" value="<%= lead.website || '' %>"></div>
+    <% if (!editing) { %>
+    <div class="field"><label for="next_follow_up">Follow up on</label><input id="next_follow_up" name="next_follow_up" type="date" value="<%= lead.next_follow_up || '' %>"></div>
+    <div class="field"><label for="assigned_to">Owner</label><select id="assigned_to" name="assigned_to"><option value="">Unassigned</option><% users.forEach(function (u) { %><option value="<%= u.id %>" <%= h.selected(lead.assigned_to || user.id, u.id) %>><%= u.name %></option><% }) %></select></div>
+    <% } %>
+    <div class="field full"><label for="message">Requirement / notes</label><textarea id="message" name="message" rows="4"><%= lead.message || '' %></textarea></div>
+  </div>
+  <div class="form-actions"><button class="btn" type="submit"><%= editing ? 'Save changes' : 'Add lead' %></button><a class="btn btn-ghost" href="<%= editing ? '/admin/leads/' + lead.id : '/admin/leads' %>">Cancel</a></div>
+</form>

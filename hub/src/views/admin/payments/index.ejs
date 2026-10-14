@@ -1,0 +1,45 @@
+<div class="page-head">
+  <div><h1>Payments</h1><div class="sub">Money received, and payments clients reported for you to verify.</div></div>
+</div>
+<div class="stats">
+  <div class="stat"><div class="label">Received this month</div><div class="value"><%= h.inrShort(thisMonth) %></div><div class="delta"><%= thisMonthTds ? '+ ' + h.inrShort(thisMonthTds) + ' TDS deducted' : 'Excludes TDS' %></div></div>
+  <a class="stat" href="/admin/payments?status=pending" style="text-decoration:none"><div class="label">Waiting for verification</div><div class="value <%= pendingCount ? 'down' : '' %>"><%= h.inrShort(pendingAmount) %></div><div class="delta"><%= pendingCount %> reported by clients</div></a>
+</div>
+<div class="row-between">
+  <nav class="tabs">
+    <% [['', 'All'], ['pending', 'To verify'], ['confirmed', 'Confirmed'], ['rejected', 'Rejected']].forEach(function (t) { %><a href="<%= h.qs('/admin/payments', { status: t[0], month: month }) %>" class="<%= status === t[0] ? 'active' : '' %>"><%= t[1] %></a><% }) %>
+  </nav>
+  <form method="get" class="row mb-16"><input type="hidden" name="status" value="<%= status %>"><input type="month" name="month" value="<%= month %>" data-autosubmit aria-label="Month" style="width:auto"></form>
+</div>
+<div class="card">
+  <% if (!rows.length) { %><div class="empty"><b>No payments</b>Payments appear here as clients pay online or you record them.</div><% } else { %>
+  <div class="table-wrap"><table class="table">
+    <thead><tr><th>Date</th><th>Client</th><th>Invoice</th><th>Method</th><th>Reference</th><th>Status</th><th class="num">Amount</th><th class="num">TDS</th><th></th></tr></thead>
+    <tbody>
+      <% rows.forEach(function (p) { %>
+      <tr>
+        <td class="nowrap"><%= h.date(p.paid_on) %></td>
+        <td><a href="/admin/clients/<%= p.client_id %>"><%= p.client_name %></a></td>
+        <td><a class="mono" href="/admin/invoices/<%= p.invoice_id %>"><%= p.invoice_number %></a></td>
+        <td><%= h.method(p.method) %></td>
+        <td class="mono small"><%= p.reference || '—' %></td>
+        <td><%- h.badge(p.status, p.status === 'pending' ? 'To verify' : null) %></td>
+        <td class="num"><%= h.inr(p.amount) %></td>
+        <td class="num"><%= Number(p.tds) ? h.inr(p.tds) : '—' %></td>
+        <td class="nowrap">
+          <% if (p.status === 'pending') { %>
+          <form method="post" action="/admin/payments/<%= p.id %>/status" class="row" style="flex-wrap:nowrap"><%- include('../../partials/csrf') %>
+            <button class="btn btn-success btn-sm" name="status" value="confirmed">Confirm</button>
+            <button class="btn btn-ghost btn-sm" name="status" value="rejected">Reject</button>
+          </form>
+          <% } else if (p.status === 'confirmed' && isAdmin) { %>
+          <form method="post" action="/admin/payments/<%= p.id %>/status" data-confirm="Reverse this payment? The invoice balance will go back up."><%- include('../../partials/csrf') %><button class="btn btn-ghost btn-sm" name="status" value="rejected">Reverse</button></form>
+          <% } %>
+        </td>
+      </tr>
+      <% }) %>
+    </tbody>
+  </table></div>
+  <%- include('../../partials/pager', { pagerBase: '/admin/payments', pagerQuery: { status: status, month: month } }) %>
+  <% } %>
+</div>

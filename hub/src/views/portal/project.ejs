@@ -1,0 +1,39 @@
+<div class="crumbs"><a href="/portal/projects">Projects</a> / <%= project.name %></div>
+<div class="page-head">
+  <div><h1><%= project.name %> <%- h.badge(project.status) %></h1><div class="sub"><%= h.service(project.service) || '' %><%= project.due_date ? ' · target ' + h.date(project.due_date) : '' %></div></div>
+  <div class="actions"><a class="btn btn-ghost" href="/portal/tickets/new?project_id=<%= project.id %>">Request a change</a></div>
+</div>
+<section class="card card-pad mb-16">
+  <div class="row-between mb-8"><b>Overall progress</b><b><%= project.progress %>%</b></div>
+  <div class="progress <%= project.status === 'completed' ? 'done' : '' %>" style="height:12px"><span style="width:<%= project.progress %>%"></span></div>
+</section>
+<div class="split">
+  <div class="stack">
+    <section class="card">
+      <div class="card-head"><h3>Updates from the team</h3></div>
+      <div class="card-body">
+        <% if (!updates.length) { %><p class="muted small mb-0">No updates yet.</p><% } else { %>
+        <ul class="timeline"><% updates.forEach(function (u) { %><li class="k-email"><div class="meta"><%= u.user_name || 'Haptags' %> · <%= h.dateTime(u.created_at) %></div><div class="body"><%= u.body %></div></li><% }) %></ul><% } %>
+      </div>
+    </section>
+  </div>
+  <div class="stack">
+    <section class="card">
+      <div class="card-head"><h3>Milestones</h3></div>
+      <% if (!milestones.length) { %><div class="empty">Milestones will appear here.</div><% } %>
+      <% milestones.forEach(function (m) { %>
+      <div class="ms <%= m.status %>"><span class="dot"><% if (m.status === 'done') { %><%- h.icon('check', 12) %><% } %></span><span class="t"><%= m.title %><% if (m.due_date) { %><span class="small muted"> · <%= h.date(m.due_date) %></span><% } %></span><span class="small muted"><%= m.status === 'doing' ? 'In progress' : '' %></span></div>
+      <% }) %>
+    </section>
+    <% if (links.length) { %>
+    <section class="card"><div class="card-head"><h3>Files & links</h3></div><div class="card-body">
+      <% links.forEach(function (l) { %><p class="mb-8"><a href="<%= l.url %>" target="_blank" rel="noopener noreferrer"><%- h.icon('link', 14) %> <%= l.label %></a></p><% }) %>
+    </div></section>
+    <% } %>
+    <% if (invoices.length) { %>
+    <section class="card"><div class="card-head"><h3>Invoices</h3></div><ul class="list">
+      <% invoices.forEach(function (i) { %><li><div class="grow"><a class="title mono" href="/i/<%= i.public_token %>"><%= i.number %></a><span class="meta"><%= h.date(i.issue_date) %></span></div><span class="small"><%= h.inrShort(i.total) %></span><%- h.badge(i.status) %></li><% }) %>
+    </ul></section>
+    <% } %>
+  </div>
+</div>

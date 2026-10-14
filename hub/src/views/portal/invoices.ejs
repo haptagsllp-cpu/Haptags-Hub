@@ -1,0 +1,20 @@
+<div class="page-head"><div><h1>Invoices</h1><div class="sub">View, download and pay your invoices.</div></div></div>
+<div class="card">
+  <% if (!invoices.length) { %><div class="empty">No invoices yet.</div><% } else { %>
+  <div class="table-wrap"><table class="table">
+    <thead><tr><th>Invoice</th><th>Date</th><th>Due</th><th>Status</th><th class="num">Total</th><th class="num">Balance</th><th></th></tr></thead>
+    <tbody>
+      <% invoices.forEach(function (i) { const bal = Number(i.total) - Number(i.amount_paid); %>
+      <tr>
+        <td><a class="strong mono" href="/i/<%= i.public_token %>"><%= i.number %></a><span class="sub"><%= i.title || '' %></span></td>
+        <td class="nowrap"><%= h.date(i.issue_date) %></td>
+        <td class="nowrap"><%= h.date(i.due_date) %></td>
+        <td><%- h.badge(i.status) %></td>
+        <td class="num"><%= h.inr(i.total) %></td>
+        <td class="num"><%= i.status === 'void' ? '—' : h.inr(Math.max(0, bal)) %></td>
+        <td><% if (bal > 0 && i.status !== 'void') { %><a class="btn btn-sm" href="/i/<%= i.public_token %>#pay">Pay</a><% } else { %><a class="btn btn-ghost btn-sm" href="/i/<%= i.public_token %>">View</a><% } %></td>
+      </tr>
+      <% }) %>
+    </tbody>
+  </table></div><% } %>
+</div>

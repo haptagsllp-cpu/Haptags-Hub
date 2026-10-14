@@ -1,0 +1,41 @@
+<div class="doc-actions no-print">
+  <div class="row">
+    <% if (user && user.role !== 'client') { %><a class="btn btn-ghost btn-sm" href="/admin/quotes/<%= doc.id %>">← Back to Hub</a><% } else if (user) { %><a class="btn btn-ghost btn-sm" href="/portal/quotes">← My quotations</a><% } %>
+    <% if (doc.status === 'draft') { %><span class="badge tone-amber">Draft preview — not visible to the client yet</span><% } %>
+  </div>
+  <div class="row">
+    <% if (canRespond) { %><a class="btn btn-sm" href="#respond">Accept quotation</a><% } %>
+    <button class="btn btn-ghost btn-sm" type="button" data-print><%- h.icon('download', 16) %> Download PDF</button>
+  </div>
+</div>
+
+<%- include('../partials/document', { kind: 'quote' }) %>
+
+<section class="pay-box no-print" id="respond">
+  <div class="card card-pad">
+    <% if (canRespond) { %>
+      <h2>Ready to go ahead?</h2>
+      <p class="muted">Accepting confirms the scope and pricing above. We’ll send the advance invoice and schedule the kick-off.</p>
+      <form method="post" action="/q/<%= doc.public_token %>/respond">
+        <%- include('../partials/csrf') %>
+        <div class="form-grid">
+          <div class="field"><label for="name">Your full name</label><input id="name" name="name" type="text" autocomplete="name" value="<%= user ? user.name : (client.contact_name || '') %>" required></div>
+          <div class="field"><label for="comment">Comments (optional)</label><input id="comment" name="comment" type="text" placeholder="Anything we should know?"></div>
+        </div>
+        <div class="row">
+          <button class="btn btn-success btn-lg" type="submit" name="decision" value="accept"><%- h.icon('check') %> Accept quotation</button>
+          <button class="btn btn-ghost" type="submit" name="decision" value="decline">Decline</button>
+          <% if (settings.whatsapp) { %><a class="btn btn-wa" href="https://wa.me/<%= settings.whatsapp %>?text=<%= encodeURIComponent('Hi, I have a question about quotation ' + doc.number) %>" target="_blank" rel="noopener"><%- h.icon('whatsapp') %> Ask a question</a><% } %>
+        </div>
+      </form>
+    <% } else if (doc.status === 'accepted' || doc.status === 'invoiced') { %>
+      <div class="row"><%- h.badge('accepted', 'Accepted') %><span>Accepted by <b><%= doc.responded_by %></b> on <%= h.dateTime(doc.responded_at) %>. Thank you!</span></div>
+    <% } else if (doc.status === 'declined') { %>
+      <div class="row"><%- h.badge('declined', 'Declined') %><span>Declined on <%= h.dateTime(doc.responded_at) %>. Want to revisit? <a href="mailto:<%= settings.email %>">Contact us</a>.</span></div>
+    <% } else if (doc.status === 'expired') { %>
+      <div class="row"><%- h.badge('expired', 'Expired') %><span>This quotation has expired. <a href="mailto:<%= settings.email %>">Ask us for an updated one</a>.</span></div>
+    <% } else { %>
+      <p class="muted mb-0">This quotation hasn’t been sent yet.</p>
+    <% } %>
+  </div>
+</section>

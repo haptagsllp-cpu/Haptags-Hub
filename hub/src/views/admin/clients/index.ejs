@@ -1,0 +1,28 @@
+<div class="page-head">
+  <div><h1>Clients</h1><div class="sub">Everyone you bill, with what they owe.</div></div>
+  <div class="actions"><a class="btn" href="/admin/clients/new"><%- h.icon('plus', 16) %> Add client</a></div>
+</div>
+<div class="row-between">
+  <nav class="tabs"><a href="/admin/clients" class="<%= status === 'active' ? 'active' : '' %>">Active</a><a href="/admin/clients?status=inactive" class="<%= status === 'inactive' ? 'active' : '' %>">Inactive</a></nav>
+  <form method="get" class="mb-16"><input type="hidden" name="status" value="<%= status %>"><input type="search" name="q" value="<%= q || '' %>" placeholder="Search clients…" aria-label="Search clients" style="width:240px"></form>
+</div>
+<div class="card">
+  <% if (!rows.length) { %><div class="empty"><b>No clients yet</b>Convert a lead or add a client to start billing.</div><% } else { %>
+  <div class="table-wrap"><table class="table">
+    <thead><tr><th>Client</th><th>Contact</th><th>State</th><th class="num">Active projects</th><th class="num">Billed</th><th class="num">Outstanding</th></tr></thead>
+    <tbody>
+      <% rows.forEach(function (c) { const b = bal[c.id] || { billed: 0, due: 0 }; %>
+      <tr>
+        <td><a class="strong" href="/admin/clients/<%= c.id %>"><%= c.name %></a><% if (c.gstin) { %><span class="sub mono"><%= c.gstin %></span><% } %></td>
+        <td><%= c.contact_name || '—' %><span class="sub"><%= c.phone || c.email || '' %></span></td>
+        <td><%= c.state || '—' %></td>
+        <td class="num"><%= activeProjects[c.id] || 0 %></td>
+        <td class="num"><%= h.inrShort(b.billed) %></td>
+        <td class="num <%= b.due > 0 ? 'strong' : 'muted' %>"><%= b.due > 0 ? h.inrShort(b.due) : '—' %></td>
+      </tr>
+      <% }) %>
+    </tbody>
+  </table></div>
+  <%- include('../../partials/pager', { pagerBase: '/admin/clients', pagerQuery: { status: status, q: q } }) %>
+  <% } %>
+</div>

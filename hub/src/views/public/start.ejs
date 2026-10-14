@@ -1,0 +1,63 @@
+<div class="card card-pad" style="max-width:720px;margin:12px auto 0">
+  <h1>Start your project</h1>
+  <p class="muted">Tell us what you’re building. We reply within one working day with next steps and an indicative estimate.</p>
+  <form method="post" action="/start" novalidate>
+    <%- include('../partials/csrf') %>
+    <input type="hidden" name="started" value="<%= started %>">
+    <div class="hp" aria-hidden="true"><label>Leave this empty <input type="text" name="website_url" tabindex="-1" autocomplete="off"></label></div>
+    <div class="form-grid">
+      <div class="field">
+        <label for="name">Your name *</label>
+        <input id="name" name="name" type="text" autocomplete="name" value="<%= values.name || '' %>" <%- errors.name ? 'aria-invalid="true"' : '' %> required>
+        <% if (errors.name) { %><div class="error"><%= errors.name %></div><% } %>
+      </div>
+      <div class="field">
+        <label for="company">Company</label>
+        <input id="company" name="company" type="text" autocomplete="organization" value="<%= values.company || '' %>">
+      </div>
+      <div class="field">
+        <label for="email">Email *</label>
+        <input id="email" name="email" type="email" autocomplete="email" value="<%= values.email || '' %>" <%- errors.email ? 'aria-invalid="true"' : '' %>>
+        <% if (errors.email) { %><div class="error"><%= errors.email %></div><% } %>
+      </div>
+      <div class="field">
+        <label for="phone">Phone / WhatsApp</label>
+        <input id="phone" name="phone" type="tel" autocomplete="tel" value="<%= values.phone || '' %>" <%- errors.phone ? 'aria-invalid="true"' : '' %>>
+        <% if (errors.phone) { %><div class="error"><%= errors.phone %></div><% } %>
+      </div>
+      <div class="field">
+        <label for="service">What do you need?</label>
+        <select id="service" name="service">
+          <option value="">Not sure yet</option>
+          <% h.C.SERVICES.forEach(function (s) { %><option value="<%= s[0] %>" <%= h.selected(values.service, s[0]) %>><%= s[1] %></option><% }) %>
+        </select>
+      </div>
+      <div class="field">
+        <label for="budget">Budget</label>
+        <select id="budget" name="budget">
+          <option value="">Prefer not to say</option>
+          <% h.C.BUDGETS.forEach(function (b) { %><option value="<%= b[0] %>" <%= h.selected(values.budget, b[0]) %>><%= b[1] %></option><% }) %>
+        </select>
+      </div>
+      <div class="field">
+        <label for="timeline">Timeline</label>
+        <select id="timeline" name="timeline">
+          <option value="">Flexible</option>
+          <% h.C.TIMELINES.forEach(function (t) { %><option value="<%= t[0] %>" <%= h.selected(values.timeline, t[0]) %>><%= t[1] %></option><% }) %>
+        </select>
+      </div>
+      <div class="field">
+        <label for="website">Current website (if any)</label>
+        <input id="website" name="website" type="text" value="<%= values.website || '' %>" placeholder="example.com">
+      </div>
+      <div class="field full">
+        <label for="message">Project details</label>
+        <textarea id="message" name="message" rows="5" placeholder="Goals, must-have features, links to sites you like…"><%= values.message || '' %></textarea>
+      </div>
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-lg" type="submit">Send enquiry <%- h.icon('send') %></button>
+      <% if (settings.whatsapp) { %><a class="btn btn-wa btn-lg" href="https://wa.me/<%= settings.whatsapp %>?text=<%= encodeURIComponent('Hi Haptags, I would like to discuss a project.') %>" target="_blank" rel="noopener"><%- h.icon('whatsapp') %> WhatsApp instead</a><% } %>
+    </div>
+  </form>
+</div>

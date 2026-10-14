@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en-IN">
+<head><%- include('../partials/head') %></head>
+<body>
+<div class="shell">
+  <aside class="sidebar" aria-label="Client navigation">
+    <a class="brand" href="/portal"><img src="/static/img/haptags-mark-light.webp" alt=""><span><b>HAPTAGS</b><small>Client Portal</small></span></a>
+    <%
+      const items = [
+        ['/portal', 'home', 'Overview', true],
+        ['/portal/projects', 'projects', 'Projects'],
+        ['/portal/invoices', 'invoices', 'Invoices'],
+        ['/portal/quotes', 'quotes', 'Quotations'],
+        ['/portal/tickets', 'tickets', 'Support'],
+        ['/portal/account', 'user', 'My account'],
+      ];
+      const full = locals.fullPath || '';
+    %>
+    <nav class="nav">
+      <% items.forEach(function (it) { const active = it[3] ? full === it[0] : full === it[0] || full.startsWith(it[0] + '/'); %>
+        <a href="<%= it[0] %>" class="<%= active ? 'active' : '' %>"<%- active ? ' aria-current="page"' : '' %>><%- h.icon(it[1]) %><span><%= it[2] %></span></a>
+      <% }) %>
+    </nav>
+    <div class="sidebar-foot">
+      <span class="avatar"><%= h.initials(user.name) %></span>
+      <div class="who"><b><%= user.name %></b><a href="/portal/account"><%= client.name %></a></div>
+      <form method="post" action="/logout" class="inline"><%- include('../partials/csrf') %><button class="icon-btn" title="Sign out" aria-label="Sign out"><%- h.icon('logout') %></button></form>
+    </div>
+  </aside>
+  <div class="main">
+    <header class="topbar">
+      <button class="icon-btn menu-btn" data-nav-toggle aria-label="Open menu"><%- h.icon('menu', 22) %></button>
+      <strong><%= client.name %></strong>
+      <span class="spacer"></span>
+      <% if (settings.whatsapp) { %><a class="btn btn-wa btn-sm" href="https://wa.me/<%= settings.whatsapp %>" target="_blank" rel="noopener"><%- h.icon('whatsapp', 16) %><span class="hide-sm"> WhatsApp</span></a><% } %>
+      <a class="btn btn-sm" href="/portal/tickets/new"><%- h.icon('plus', 16) %><span class="hide-sm"> New request</span></a>
+    </header>
+    <main class="content">
+      <%- include('../partials/flash') %>
+      <%- body %>
+    </main>
+  </div>
+</div>
+<script src="/static/js/app.js?v=1" defer></script>
+</body>
+</html>

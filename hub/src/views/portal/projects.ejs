@@ -1,0 +1,10 @@
+<div class="page-head"><div><h1>Projects</h1></div></div>
+<div class="card">
+  <% if (!projects.length) { %><div class="empty">No projects yet.</div><% } else { %>
+  <ul class="list">
+    <% projects.forEach(function (p) { %>
+    <li><div class="grow"><a class="title" href="/portal/projects/<%= p.id %>"><%= p.name %></a><span class="meta"><%= h.service(p.service) || '' %><%= p.due_date ? ' · target ' + h.date(p.due_date) : '' %></span></div>
+      <div class="progress <%= p.status === 'completed' ? 'done' : '' %>" style="width:120px"><span style="width:<%= p.progress %>%"></span></div><%- h.badge(p.status) %></li>
+    <% }) %>
+  </ul><% } %>
+</div>

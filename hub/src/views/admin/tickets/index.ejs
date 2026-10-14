@@ -1,0 +1,27 @@
+<div class="page-head">
+  <div><h1>Support</h1><div class="sub">Client requests from the portal. Open = waiting on us.</div></div>
+  <div class="actions"><a class="btn" href="/admin/tickets/new"><%- h.icon('plus', 16) %> New ticket</a></div>
+</div>
+<nav class="tabs">
+  <% [['active', 'Active'], ['open', 'Waiting on us'], ['awaiting_client', 'Waiting on client'], ['resolved', 'Resolved'], ['closed', 'Closed'], ['all', 'All']].forEach(function (t) { %><a href="/admin/tickets?status=<%= t[0] %>" class="<%= status === t[0] ? 'active' : '' %>"><%= t[1] %></a><% }) %>
+</nav>
+<div class="card">
+  <% if (!rows.length) { %><div class="empty"><b>Nothing here</b>Clients raise requests from their portal.</div><% } else { %>
+  <div class="table-wrap"><table class="table">
+    <thead><tr><th>#</th><th>Subject</th><th>Client</th><th>Priority</th><th>Status</th><th>Last reply</th></tr></thead>
+    <tbody>
+      <% rows.forEach(function (t) { %>
+      <tr>
+        <td class="muted">#<%= t.id %></td>
+        <td><a class="strong" href="/admin/tickets/<%= t.id %>"><%= t.subject %></a><% if (t.project_name) { %><span class="sub"><%= t.project_name %></span><% } %></td>
+        <td><a href="/admin/clients/<%= t.client_id %>"><%= t.client_name %></a></td>
+        <td><%- h.badge(t.priority) %></td>
+        <td><%- h.badge(t.status) %></td>
+        <td class="nowrap"><%= h.ago(t.last_reply_at) %><span class="sub">by <%= t.last_reply_by || '—' %></span></td>
+      </tr>
+      <% }) %>
+    </tbody>
+  </table></div>
+  <%- include('../../partials/pager', { pagerBase: '/admin/tickets', pagerQuery: { status: status } }) %>
+  <% } %>
+</div>

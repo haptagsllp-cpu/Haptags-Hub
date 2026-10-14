@@ -1,0 +1,40 @@
+<div class="crumbs"><a href="/admin/tickets">Support</a> / #<%= ticket.id %></div>
+<div class="page-head">
+  <div>
+    <h1><%= ticket.subject %></h1>
+    <div class="sub">#<%= ticket.id %> · <a href="/admin/clients/<%= ticket.client_id %>"><%= ticket.client_name %></a><%= ticket.project_name ? ' · ' + ticket.project_name : '' %> · opened <%= h.ago(ticket.created_at) %></div>
+  </div>
+  <div class="actions"><%- h.badge(ticket.priority) %> <%- h.badge(ticket.status) %></div>
+</div>
+<div class="split">
+  <div class="stack">
+    <div class="thread">
+      <% messages.forEach(function (m) { const staff = m.user_role && m.user_role !== 'client'; %>
+      <div class="msg <%= m.internal ? 'internal' : (staff ? 'mine' : '') %>">
+        <div class="meta"><b><%= m.user_name || 'Unknown' %></b> · <%= staff ? 'Haptags' : ticket.client_name %> · <%= h.dateTime(m.created_at) %><%= m.internal ? ' · internal note' : '' %></div>
+        <div class="body"><%= m.body %></div>
+      </div>
+      <% }) %>
+    </div>
+    <form method="post" action="/admin/tickets/<%= ticket.id %>/reply" class="card card-pad">
+      <%- include('../../partials/csrf') %>
+      <div class="field"><label for="reply">Reply</label><textarea id="reply" name="body" rows="4" placeholder="Write your reply — the client gets it by email and in their portal."></textarea></div>
+      <div class="row">
+        <label class="check small"><input type="checkbox" name="internal" value="1"> Internal note (client won’t see)</label>
+        <span style="flex:1"></span>
+        <label class="small mb-0 row" style="font-weight:500">Set status
+          <select name="status" style="width:auto"><option value="awaiting_client">Waiting on client</option><option value="resolved">Resolved</option><option value="open">Keep open</option></select></label>
+        <button class="btn" type="submit"><%- h.icon('send', 16) %> Send</button>
+      </div>
+    </form>
+  </div>
+  <section class="card">
+    <div class="card-head"><h3>Ticket</h3></div>
+    <form method="post" action="/admin/tickets/<%= ticket.id %>/meta" class="card-body">
+      <%- include('../../partials/csrf') %>
+      <div class="field"><label for="tstatus">Status</label><select id="tstatus" name="status"><% h.C.TICKET_STATUSES.forEach(function (s) { %><option value="<%= s %>" <%= h.selected(ticket.status, s) %>><%= h.humanize(s) %></option><% }) %></select></div>
+      <div class="field"><label for="tprio">Priority</label><select id="tprio" name="priority"><% h.C.TICKET_PRIORITIES.forEach(function (p) { %><option value="<%= p %>" <%= h.selected(ticket.priority, p) %>><%= h.humanize(p) %></option><% }) %></select></div>
+      <button class="btn btn-ghost btn-block" type="submit">Update</button>
+    </form>
+  </section>
+</div>

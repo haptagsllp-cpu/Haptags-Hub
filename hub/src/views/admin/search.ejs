@@ -1,0 +1,24 @@
+<%
+  const groups = [
+    ['Leads', results.leads, function (r) { return { href: '/admin/leads/' + r.id, title: r.name, meta: [r.company, r.email, r.phone].filter(Boolean).join(' · '), status: r.status }; }],
+    ['Clients', results.clients, function (r) { return { href: '/admin/clients/' + r.id, title: r.name, meta: [r.contact_name, r.email, r.gstin].filter(Boolean).join(' · ') }; }],
+    ['Invoices', results.invoices, function (r) { return { href: '/admin/invoices/' + r.id, title: (r.number || 'Draft #' + r.id) + ' · ' + r.client_name, meta: h.inr(r.total), status: r.status }; }],
+    ['Quotations', results.quotes, function (r) { return { href: '/admin/quotes/' + r.id, title: r.number + ' · ' + r.title, meta: r.client_name + ' · ' + h.inr(r.total), status: r.status }; }],
+    ['Projects', results.projects, function (r) { return { href: '/admin/projects/' + r.id, title: r.name, meta: r.client_name, status: r.status }; }],
+  ];
+  const total = groups.reduce(function (n, g) { return n + g[1].length; }, 0);
+%>
+<div class="page-head"><div><h1>Search</h1><div class="sub"><%= q ? total + ' result' + (total === 1 ? '' : 's') + ' for “' + q + '”' : 'Type in the search box above.' %></div></div></div>
+<% if (q && !total) { %><div class="card"><div class="empty"><b>Nothing found</b>Try a name, phone number, email, GSTIN or invoice number.</div></div><% } %>
+<div class="grid grid-2">
+  <% groups.forEach(function (g) { if (!g[1].length) return; %>
+  <section class="card">
+    <div class="card-head"><h3><%= g[0] %></h3></div>
+    <ul class="list">
+      <% g[1].forEach(function (r) { const x = g[2](r); %>
+      <li><div class="grow"><a class="title" href="<%= x.href %>"><%= x.title %></a><span class="meta"><%= x.meta %></span></div><% if (x.status) { %><%- h.badge(x.status) %><% } %></li>
+      <% }) %>
+    </ul>
+  </section>
+  <% }) %>
+</div>
