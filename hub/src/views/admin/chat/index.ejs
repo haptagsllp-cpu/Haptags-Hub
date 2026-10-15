@@ -1,0 +1,154 @@
+<%
+  const online = new Set(data.online);
+  const isActive = function (c) { return current && current.id === c.id; };
+  const canEdit = current && current.kind !== 'dm';
+  const canAddPeople = current && (current.kind === 'group' || (current.kind === 'channel' && current.is_private));
+  const memberIds = members.map(function (m) { return m.id; });
+%>
+<div class="chat<%= current ? ' has-channel' : '' %>">
+  <aside class="chat-list" aria-label="Conversations">
+    <div class="chat-list-head">
+      <h1>Chat</h1>
+      <button class="btn btn-sm" type="button" data-dialog="#new-chat"><%- h.icon('edit', 15) %> New chat</button>
+    </div>
+    <div class="chat-group">
+      <div class="chat-group-head"><span>Channels</span><button class="icon-btn" type="button" data-dialog="#new-channel" title="New channel" aria-label="New channel"><%- h.icon('plus', 15) %></button></div>
+      <% list.channels.forEach(function (c) { %>
+      <a class="chat-item<%= isActive(c) ? ' active' : '' %>" href="/admin/chat/<%= c.id %>" data-channel-link="<%= c.id %>"<%- isActive(c) ? ' aria-current="page"' : '' %>>
+        <span class="chat-ico"><%- h.icon(c.is_private ? 'lock' : 'hash', 15) %></span>
+        <span class="chat-name"><%= c.label %></span>
+        <span class="count" data-unread<%= c.unread ? '' : ' hidden' %>><%= c.unread %></span>
+      </a>
+      <% }) %>
+    </div>
+    <div class="chat-group">
+      <div class="chat-group-head"><span>Direct messages</span><button class="icon-btn" type="button" data-dialog="#new-chat" title="New chat" aria-label="New chat"><%- h.icon('plus', 15) %></button></div>
+      <% if (!list.direct.length) { %><p class="chat-hint">Message someone on the team. Only the people in a chat can see it.</p><% } %>
+      <% list.direct.forEach(function (c) { %>
+      <a class="chat-item<%= isActive(c) ? ' active' : '' %>" href="/admin/chat/<%= c.id %>" data-channel-link="<%= c.id %>"<%- isActive(c) ? ' aria-current="page"' : '' %>>
+        <% if (c.kind === 'dm') { %>
+        <span class="avatar avatar-sm<%= online.has(c.otherId) ? ' online' : '' %>" data-presence="<%= c.otherId %>"><%= h.initials(c.label) %></span>
+        <% } else { %>
+        <span class="avatar avatar-sm avatar-group"><%= (c.people || []).length + 1 %></span>
+        <% } %>
+        <span class="chat-name"><%= c.label %></span>
+        <span class="count" data-unread<%= c.unread ? '' : ' hidden' %>><%= c.unread %></span>
+      </a>
+      <% }) %>
+    </div>
+  </aside>
+
+  <section class="chat-main">
+    <% if (!current) { %>
+    <div class="empty chat-empty"><%- h.icon('chat', 34) %><b>Pick a conversation</b>Or start a new chat with someone on the team.</div>
+    <% } else { %>
+    <header class="chat-head">
+      <a class="icon-btn chat-back" href="/admin/chat?list=1" aria-label="All conversations"><%- h.icon('back', 20) %></a>
+      <div class="chat-title">
+        <h2><% if (current.kind === 'channel') { %><span class="muted">#</span><% } %><%= current.label %></h2>
+        <div class="sub">
+          <% if (current.topic) { %><%= current.topic %> · <% } %>
+          <% if (current.kind === 'dm') { %><span data-presence-text="<%= current.otherId %>"><%= online.has(current.otherId) ? 'Online' : 'Offline' %></span><% } else { %><%= members.length %> <%= members.length === 1 ? 'member' : 'members' %><% } %>
+        </div>
+      </div>
+      <div class="chat-actions">
+        <form method="post" action="/admin/chat/<%= current.id %>/call" class="inline" target="_blank" data-no-disable>
+          <%- include('../../partials/csrf') %>
+          <button class="btn btn-sm" type="submit" title="Start a video call with everyone here"><%- h.icon('video', 16) %><span class="hide-sm"> Call</span></button>
+        </form>
+        <a class="btn btn-ghost btn-sm" href="/admin/meetings/new?<%= memberIds.filter(function (id) { return id !== user.id; }).map(function (id) { return 'user_ids=' + id; }).join('&') %>" title="Schedule a meeting with this chat"><%- h.icon('calendar', 16) %></a>
+        <button class="btn btn-ghost btn-sm" type="button" data-dialog="#chat-info" title="Details" aria-label="Details"><%- h.icon('info', 16) %></button>
+      </div>
+    </header>
+    <div class="chat-scroll" data-scroll>
+      <div class="chat-more"><button class="btn btn-ghost btn-sm" type="button" data-more hidden>Load earlier messages</button></div>
+      <div class="chat-messages" data-messages></div>
+      <noscript><div class="empty">Chat needs JavaScript turned on.</div></noscript>
+    </div>
+    <div class="chat-typing" data-typing aria-live="polite"></div>
+    <form class="composer" data-composer>
+      <label class="icon-btn composer-btn" title="Attach a file (up to 8 MB)">
+        <%- h.icon('paperclip', 19) %><span class="sr-only">Attach a file</span>
+        <input type="file" data-file hidden>
+      </label>
+      <textarea rows="1" data-input aria-label="Message" placeholder="<%= current.kind === 'channel' ? 'Message #' + current.label : 'Message ' + current.label %>"></textarea>
+      <button class="btn composer-send" type="submit" aria-label="Send"><%- h.icon('send', 17) %></button>
+    </form>
+    <% } %>
+  </section>
+</div>
+
+<dialog class="modal" id="new-chat" aria-labelledby="new-chat-title">
+  <form method="post" action="/admin/chat/new">
+    <%- include('../../partials/csrf') %>
+    <div class="modal-head"><h2 id="new-chat-title">New chat</h2><button class="icon-btn" type="button" data-close aria-label="Close"><%- h.icon('x') %></button></div>
+    <div class="modal-body">
+      <p class="muted small mt-0">Pick one person for a private chat, or several for a group.</p>
+      <% if (!team.length) { %><div class="empty">Nobody else is on the team yet. <a href="/admin/team">Invite people</a>.</div><% } %>
+      <div class="pick-list">
+        <% team.forEach(function (u) { %>
+        <label class="check pick"><input type="checkbox" name="user_ids" value="<%= u.id %>"><span class="avatar avatar-sm<%= online.has(u.id) ? ' online' : '' %>" data-presence="<%= u.id %>"><%= h.initials(u.name) %></span><span><%= u.name %><span class="muted small"> · <%= h.humanize(u.role) %></span></span></label>
+        <% }) %>
+      </div>
+      <div class="field mt-16 mb-0"><label for="group-name">Group name <span class="muted">(optional)</span></label><input id="group-name" name="name" type="text" maxlength="120" placeholder="e.g. Website launch"></div>
+    </div>
+    <div class="modal-foot"><button class="btn btn-ghost" type="button" data-close>Cancel</button><button class="btn" type="submit">Start chat</button></div>
+  </form>
+</dialog>
+
+<dialog class="modal" id="new-channel" aria-labelledby="new-channel-title">
+  <form method="post" action="/admin/chat/channels">
+    <%- include('../../partials/csrf') %>
+    <div class="modal-head"><h2 id="new-channel-title">New channel</h2><button class="icon-btn" type="button" data-close aria-label="Close"><%- h.icon('x') %></button></div>
+    <div class="modal-body">
+      <div class="field"><label for="ch-name">Name</label><input id="ch-name" name="name" type="text" maxlength="60" required placeholder="e.g. design"><div class="hint">Lowercase, no spaces. Channels are for topics, teams or clients.</div></div>
+      <div class="field"><label for="ch-topic">Topic <span class="muted">(optional)</span></label><input id="ch-topic" name="topic" type="text" maxlength="255"></div>
+      <label class="check"><input type="checkbox" name="is_private" value="1" data-toggle-target="#ch-members"> Private: only the people I add can see it</label>
+      <div class="pick-list mt-16" id="ch-members" hidden>
+        <% team.forEach(function (u) { %>
+        <label class="check pick"><input type="checkbox" name="user_ids" value="<%= u.id %>"><span class="avatar avatar-sm"><%= h.initials(u.name) %></span><span><%= u.name %></span></label>
+        <% }) %>
+      </div>
+    </div>
+    <div class="modal-foot"><button class="btn btn-ghost" type="button" data-close>Cancel</button><button class="btn" type="submit">Create channel</button></div>
+  </form>
+</dialog>
+
+<% if (current) { %>
+<dialog class="modal" id="chat-info" aria-labelledby="chat-info-title">
+  <div class="modal-head"><h2 id="chat-info-title">Details</h2><button class="icon-btn" type="button" data-close aria-label="Close"><%- h.icon('x') %></button></div>
+  <div class="modal-body">
+    <% if (canEdit) { %>
+    <form method="post" action="/admin/chat/<%= current.id %>/settings" class="mb-16">
+      <%- include('../../partials/csrf') %>
+      <div class="field"><label for="info-name">Name</label><input id="info-name" name="name" type="text" maxlength="120" value="<%= current.kind === 'channel' ? current.name : (current.name || '') %>"></div>
+      <div class="field"><label for="info-topic">Topic</label><input id="info-topic" name="topic" type="text" maxlength="255" value="<%= current.topic || '' %>"></div>
+      <button class="btn btn-ghost btn-sm" type="submit">Save</button>
+    </form>
+    <% } %>
+    <h3><%= members.length %> <%= members.length === 1 ? 'member' : 'members' %></h3>
+    <ul class="list member-list">
+      <% members.forEach(function (m) { %>
+      <li><span class="avatar avatar-sm<%= online.has(m.id) ? ' online' : '' %>" data-presence="<%= m.id %>"><%= h.initials(m.name) %></span><span class="grow"><span class="title"><%= m.name %><%= m.id === user.id ? ' (you)' : '' %></span><span class="meta"><%= h.humanize(m.role) %></span></span></li>
+      <% }) %>
+    </ul>
+    <% if (canAddPeople) { const others = team.filter(function (u) { return memberIds.indexOf(u.id) === -1; }); %>
+    <% if (others.length) { %>
+    <form method="post" action="/admin/chat/<%= current.id %>/members" class="mt-16">
+      <%- include('../../partials/csrf') %>
+      <h3>Add people</h3>
+      <div class="pick-list">
+        <% others.forEach(function (u) { %><label class="check pick"><input type="checkbox" name="user_ids" value="<%= u.id %>"><span class="avatar avatar-sm"><%= h.initials(u.name) %></span><span><%= u.name %></span></label><% }) %>
+      </div>
+      <button class="btn btn-ghost btn-sm mt-8" type="submit">Add</button>
+    </form>
+    <% } %>
+    <form method="post" action="/admin/chat/<%= current.id %>/leave" class="mt-16" data-confirm="Leave this conversation? You’ll stop getting its messages.">
+      <%- include('../../partials/csrf') %>
+      <button class="btn btn-danger btn-sm" type="submit">Leave</button>
+    </form>
+    <% } %>
+  </div>
+</dialog>
+<% } %>
+<script type="application/json" id="chat-data"><%- h.json(data) %></script>

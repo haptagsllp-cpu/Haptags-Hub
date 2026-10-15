@@ -5,6 +5,7 @@ const { migrate } = require('./src/db');
 const { getSettings } = require('./src/lib/settings');
 const { startScheduler } = require('./src/lib/automation');
 const { ensureOwner } = require('./src/lib/bootstrap');
+const { startMeetingReminders } = require('./src/lib/meetings');
 
 async function main() {
   await migrate();
@@ -15,6 +16,7 @@ async function main() {
     console.log(`Haptags Hub running on ${config.baseUrl} (port ${config.port}, db: ${config.db.client})`);
   });
   startScheduler();
+  startMeetingReminders();
 }
 
 main().catch((err) => {

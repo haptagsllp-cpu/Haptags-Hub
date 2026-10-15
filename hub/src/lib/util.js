@@ -9,6 +9,29 @@ function nowSql() {
   return new Date().toISOString().slice(0, 19).replace('T', ' ');
 }
 
+/** 'YYYY-MM-DD' + 'HH:MM' entered in India time -> UTC 'YYYY-MM-DD HH:MM:SS', or null if invalid. */
+function istToUtc(dateStr, timeStr) {
+  const d = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(dateStr || ''));
+  const t = /^(\d{1,2}):(\d{2})/.exec(String(timeStr || ''));
+  if (!d || !t || Number(t[1]) > 23 || Number(t[2]) > 59) return null;
+  const ms = Date.UTC(Number(d[1]), Number(d[2]) - 1, Number(d[3]), Number(t[1]), Number(t[2])) - IST_OFFSET_MS;
+  if (Number.isNaN(ms)) return null;
+  return new Date(ms).toISOString().slice(0, 19).replace('T', ' ');
+}
+
+/** UTC 'YYYY-MM-DD HH:MM:SS' -> { date: 'YYYY-MM-DD', time: 'HH:MM' } in India time. */
+function utcToIst(value) {
+  const ms = new Date(String(value).replace(' ', 'T') + 'Z').getTime() + IST_OFFSET_MS;
+  const iso = new Date(ms).toISOString();
+  return { date: iso.slice(0, 10), time: iso.slice(11, 16) };
+}
+
+/** Adds minutes to a UTC 'YYYY-MM-DD HH:MM:SS' string. */
+function addMinutesSql(value, minutes) {
+  const ms = new Date(String(value).replace(' ', 'T') + 'Z').getTime() + minutes * 60000;
+  return new Date(ms).toISOString().slice(0, 19).replace('T', ' ');
+}
+
 /** Today's date in India as 'YYYY-MM-DD'. Business dates (due dates, follow-ups) use IST. */
 function todayIST() {
   return new Date(Date.now() + IST_OFFSET_MS).toISOString().slice(0, 10);
@@ -68,6 +91,14 @@ function formatDateTime(value) {
   });
 }
 
+/** '2:30 pm' in India time. */
+function formatTime(value) {
+  if (!value) return '';
+  const d = new Date(String(value).replace(' ', 'T') + 'Z');
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Kolkata' });
+}
+
 function timeAgo(value) {
   if (!value) return '';
   const then = new Date(String(value).replace(' ', 'T') + 'Z').getTime();
@@ -121,6 +152,6 @@ function humanize(value) {
 }
 
 module.exports = {
-  nowSql, todayIST, addDays, addMonths, daysBetween, financialYear, parseDate, ymd,
+  nowSql, todayIST, istToUtc, utcToIst, addMinutesSql, formatTime, addDays, addMonths, daysBetween, financialYear, parseDate, ymd,
   formatDate, formatDateTime, timeAgo, randomToken, sha256, safeEqual, str, int, isEmail, isDate, humanize,
 };

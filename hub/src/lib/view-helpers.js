@@ -32,6 +32,8 @@ module.exports = {
   words: money.amountInWords,
   date: util.formatDate,
   dateTime: util.formatDateTime,
+  time: util.formatTime,
+  ist: util.utcToIst,
   ago: util.timeAgo,
   today: util.todayIST,
   humanize: util.humanize,
@@ -47,6 +49,8 @@ module.exports = {
   /** Plain text with line breaks preserved, safe for <%- %>. */
   nl2br: (s) => esc(s).replace(/\n/g, '<br>'),
   esc,
+  /** JSON for a <script type="application/json"> block; '<' is escaped so it can't close the tag. */
+  json: (v) => JSON.stringify(v).replace(/</g, '\\u003c'),
   selected: (a, b) => (String(a ?? '') === String(b ?? '') ? 'selected' : ''),
   checked: (v) => (v && v !== '0' ? 'checked' : ''),
   initials: (name) => String(name || '?').split(/\s+/).map((w) => w[0]).slice(0, 2).join('').toUpperCase(),

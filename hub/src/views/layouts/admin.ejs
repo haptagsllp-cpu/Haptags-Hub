@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en-IN">
 <head><%- include('../partials/head') %></head>
-<body>
+<body data-rt="staff" data-uid="<%= user.id %>">
 <div class="shell">
   <aside class="sidebar" aria-label="Main navigation">
     <a class="brand" href="/admin"><img src="/static/img/haptags-mark-light.webp" alt=""><span><b>HAPTAGS</b><small>Operations Hub</small></span></a>
@@ -9,6 +9,14 @@
       const c = locals.counts || {};
       const items = [
         ['/admin', 'dashboard', 'Dashboard', null, true],
+      ];
+      const work = [
+        ['/admin/chat', 'chat', 'Chat', c.chat, false, 'chat'],
+        ['/admin/meetings', 'video', 'Meetings'],
+        ['/admin/calendar', 'calendar', 'Calendar'],
+        ['/admin/announcements', 'megaphone', 'Announcements', c.announcements, false, 'announcements'],
+      ];
+      const sales = [
         ['/admin/leads', 'leads', 'Leads', c.leads],
         ['/admin/clients', 'clients', 'Clients'],
         ['/admin/projects', 'projects', 'Projects'],
@@ -28,11 +36,18 @@
       const full = locals.fullPath || '';
       const link = function (it) {
         const active = it[4] ? full === it[0] : full === it[0] || full.startsWith(it[0] + '/');
-        return '<a href="' + it[0] + '" class="' + (active ? 'active' : '') + '"' + (active ? ' aria-current="page"' : '') + '>' + h.icon(it[1]) + '<span>' + it[2] + '</span>' + (it[3] ? '<span class="count">' + it[3] + '</span>' : '') + '</a>';
+        const count = it[5]
+          ? '<span class="count" data-count="' + it[5] + '"' + (it[3] ? '' : ' hidden') + '>' + (it[3] || 0) + '</span>'
+          : (it[3] ? '<span class="count">' + it[3] + '</span>' : '');
+        return '<a href="' + it[0] + '" class="' + (active ? 'active' : '') + '"' + (active ? ' aria-current="page"' : '') + '>' + h.icon(it[1]) + '<span>' + it[2] + '</span>' + count + '</a>';
       };
     %>
     <nav class="nav">
       <%- items.map(link).join('') %>
+      <div class="nav-label">Workspace</div>
+      <%- work.map(link).join('') %>
+      <div class="nav-label">Sales &amp; delivery</div>
+      <%- sales.map(link).join('') %>
       <div class="nav-label">Money</div>
       <%- money.map(link).join('') %>
       <% if (adminItems.length) { %><div class="nav-label">Admin</div><%- adminItems.map(link).join('') %><% } %>
@@ -51,15 +66,23 @@
         <input type="search" name="q" placeholder="Search leads, clients, invoices…" value="<%= locals.searchQuery || '' %>" aria-label="Search">
       </form>
       <span class="spacer"></span>
+      <form method="post" action="/admin/meetings/now" class="inline">
+        <%- include('../partials/csrf') %>
+        <button class="btn btn-ghost btn-sm" type="submit" title="Start a video meeting now"><%- h.icon('video', 16) %><span class="hide-sm"> Meet now</span></button>
+      </form>
       <a class="btn btn-ghost btn-sm" href="/admin/leads/new"><%- h.icon('plus', 16) %><span class="hide-sm"> Lead</span></a>
       <a class="btn btn-sm" href="/admin/invoices/new"><%- h.icon('plus', 16) %><span class="hide-sm"> Invoice</span></a>
     </header>
-    <main class="content">
+    <main class="content<%= locals.flush ? ' content-flush' : '' %>">
       <%- include('../partials/flash') %>
       <%- body %>
     </main>
   </div>
 </div>
-<script src="/static/js/app.js?v=1" defer></script>
+<div class="toasts" data-toasts aria-live="polite"></div>
+<script src="/static/js/app.js?v=2" defer></script>
+<script src="/static/js/rt.js?v=1" defer></script>
+<% (locals.scripts || []).forEach(function (s) { %><script src="/static/js/<%= s %>.js?v=1" defer></script>
+<% }) %>
 </body>
 </html>

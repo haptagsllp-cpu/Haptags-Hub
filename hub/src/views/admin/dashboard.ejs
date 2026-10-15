@@ -18,6 +18,15 @@
   </div>
 </div>
 
+<% news.forEach(function (a) { %>
+<div class="news-banner<%= a.important ? ' important' : '' %>">
+  <%- h.icon('megaphone', 20) %>
+  <div class="grow"><b><%= a.title %></b><span class="muted small"> · <%= a.author_name || 'Team' %>, <%= h.ago(a.created_at) %></span><div class="news-body"><%= a.body.length > 220 ? a.body.slice(0, 220) + '…' : a.body %></div></div>
+  <a class="btn btn-ghost btn-sm" href="/admin/announcements">Open</a>
+  <form method="post" action="/admin/announcements/<%= a.id %>/read" class="inline"><%- include('../partials/csrf') %><button class="btn btn-sm" type="submit">Got it</button></form>
+</div>
+<% }) %>
+
 <div class="stats">
   <div class="stat hero-stat">
     <div class="label">Collected this month</div>
@@ -99,6 +108,23 @@
   </div>
 
   <div class="stack">
+    <section class="card">
+      <div class="card-head"><h3>Today’s meetings</h3><a class="small" href="/admin/calendar">Calendar →</a></div>
+      <% if (!todaysMeetings.length) { %>
+      <div class="empty"><b>No meetings today</b><a href="/admin/meetings/new">Schedule one</a> or start one with <b class="inline-b">Meet now</b>.</div>
+      <% } else { %>
+      <ul class="list">
+        <% todaysMeetings.forEach(function (m) { %>
+        <li class="meeting-row">
+          <div class="meeting-time"><b><%= h.time(m.starts_at) %></b><span><%= m.duration_min %> min</span></div>
+          <div class="grow"><a class="title" href="/admin/meetings/<%= m.id %>"><%= m.title %></a><span class="meta"><%= m.inCall ? m.inCall + ' in call now' : (m.past ? 'Ended' : 'with ' + (m.organizer_name || 'the team')) %></span></div>
+          <% if (!m.past || m.inCall) { %><a class="btn btn-sm <%= m.soon || m.inCall ? 'btn-success' : 'btn-ghost' %>" href="/meet/<%= m.room_token %>">Join</a><% } %>
+        </li>
+        <% }) %>
+      </ul>
+      <% } %>
+    </section>
+
     <section class="card">
       <div class="card-head"><h3>Pipeline by stage</h3><a class="small" href="/admin/leads">Leads →</a></div>
       <div class="card-body">

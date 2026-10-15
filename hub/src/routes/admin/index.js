@@ -5,20 +5,27 @@ const { db } = require('../../db');
 const C = require('../../lib/constants');
 const { getSettings } = require('../../lib/settings');
 const { columnChart } = require('../../lib/charts');
-const { todayIST, addDays, addMonths, nowSql } = require('../../lib/util');
+const { todayIST, addDays, addMonths, nowSql, istToUtc } = require('../../lib/util');
 const { monthly } = require('./retainers');
 const { runIfStale } = require('../../lib/automation');
+const { unreadTotal } = require('../../lib/chat');
+const { meetingsFor, timing } = require('../../lib/meetings');
+const { unreadFor } = require('./announcements');
 
 const router = express.Router();
 
 // Sidebar badges: things waiting on the team.
 router.use(async (req, res, next) => {
-  const [newLeads, pendingPay, openTickets] = await Promise.all([
+  const [newLeads, pendingPay, openTickets, chatUnread, news] = await Promise.all([
     db('leads').where({ status: 'new' }).count({ n: '*' }).first(),
     db('payments').where({ status: 'pending' }).count({ n: '*' }).first(),
     db('tickets').where({ status: 'open' }).count({ n: '*' }).first(),
+    unreadTotal(req.user.id),
+    unreadFor(req.user.id).clearSelect().clearOrder().count({ n: '*' }).first(),
   ]);
-  res.locals.counts = { leads: Number(newLeads.n), payments: Number(pendingPay.n), tickets: Number(openTickets.n) };
+  res.locals.counts = {
+    leads: Number(newLeads.n), payments: Number(pendingPay.n), tickets: Number(openTickets.n), chat: chatUnread, announcements: Number(news.n),
+  };
   runIfStale().catch(() => {});
   next();
 });
@@ -33,6 +40,10 @@ router.get('/', async (req, res) => {
   const prevSameDay = addDays(prevStart, Number(today.slice(8, 10)) - 1);
   const yearStart = addMonths(monthStart, -11);
   const s = await getSettings();
+  const [todaysMeetings, news] = await Promise.all([
+    meetingsFor(req.user.id, { from: istToUtc(today, '00:00'), to: istToUtc(addDays(today, 1), '00:00') }),
+    unreadFor(req.user.id).limit(3),
+  ]);
 
   const [
     payments12, outstandingRows, retainers, pipelineRows, leadsThisMonth, decided, invoicedMonth,
@@ -115,9 +126,15 @@ router.get('/', async (req, res) => {
     lastRun: s.automation_last_run,
     hour: Number(new Date(Date.now() + 5.5 * 3600000).toISOString().slice(11, 13)),
     nowSql: nowSql(),
+    todaysMeetings: todaysMeetings.map((m) => ({ ...m, ...timing(m) })),
+    news,
   });
 });
 
+router.use('/chat', require('./chat'));
+router.use('/meetings', require('./meetings'));
+router.use('/calendar', require('./calendar'));
+router.use('/announcements', require('./announcements'));
 router.use('/leads', require('./leads'));
 router.use('/clients', require('./clients'));
 router.use('/projects', require('./projects'));

@@ -10,6 +10,23 @@ function list(value) {
   return (value || '').split(',').map((s) => s.trim()).filter(Boolean);
 }
 
+/**
+ * WebRTC servers for the meeting room. STUN finds each browser's public address; a TURN relay
+ * is only needed for networks that block direct connections (some offices and mobile carriers).
+ */
+function iceServers() {
+  if (env.ICE_SERVERS) {
+    try {
+      return JSON.parse(env.ICE_SERVERS);
+    } catch {
+      console.error('[config] ICE_SERVERS is not valid JSON; using the defaults.');
+    }
+  }
+  const servers = [{ urls: ['stun:stun.cloudflare.com:3478', 'stun:stun.l.google.com:19302'] }];
+  if (env.TURN_URL) servers.push({ urls: list(env.TURN_URL), username: env.TURN_USERNAME || '', credential: env.TURN_CREDENTIAL || '' });
+  return servers;
+}
+
 const config = {
   isProd,
   port: Number(env.PORT) || 3000,
@@ -57,6 +74,8 @@ const config = {
 
   // Optional: lets a hosting cron job call /api/v1/cron?key=... to run automations.
   cronKey: env.CRON_KEY || '',
+
+  iceServers: iceServers(),
 
   // Browser origins allowed to post enquiries straight to /api/v1/leads.
   leadOrigins: list(env.LEAD_ORIGINS || 'https://haptags.com,https://www.haptags.com'),

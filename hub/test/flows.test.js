@@ -1,7 +1,8 @@
 'use strict';
 
 // End-to-end flows against a throwaway SQLite database: lead → client → quote → invoice → payment,
-// Razorpay signatures, retainer billing, reminders, client portal isolation and CSRF.
+// Razorpay signatures, retainer billing, reminders, client portal isolation and CSRF, plus the
+// workspace: chat privacy, live delivery, meeting lobby/signalling and announcements.
 
 const os = require('os');
 const path = require('path');
@@ -85,6 +86,7 @@ test.before(async () => {
 });
 
 test.after(async () => {
+  server.closeAllConnections();
   server.close();
   await db.destroy();
   fs.rmSync(tmp, { recursive: true, force: true });
@@ -260,4 +262,171 @@ test('client portal is isolated and CSRF is enforced', async () => {
   // Wrong password is rejected without revealing which part was wrong.
   res = await new Browser().login('alice@a.test', 'nope-nope-nope');
   assert.equal(res.status, 401);
+});
+
+async function staffUser(name, email, role = 'staff') {
+  const { hashPassword } = require('../src/lib/auth');
+  const [id] = await db('users').insert({
+    name, email, role, password_hash: await hashPassword('staff-password-1'), is_active: true, token_version: 1,
+    created_at: '2026-01-01 00:00:00', updated_at: '2026-01-01 00:00:00',
+  });
+  const b = new Browser();
+  await b.login(email, 'staff-password-1');
+  return { id, b };
+}
+
+test('chat: channels, private DMs, files and live delivery', async () => {
+  const owner = new Browser();
+  await owner.login('owner@test.local', 'owner-password-1');
+  const ravi = await staffUser('Ravi Kumar', 'ravi@test.local');
+  const meena = await staffUser('Meena Rao', 'meena@test.local');
+
+  // First visit creates #general and lands there.
+  let res = await owner.get('/admin/chat');
+  assert.match(res.location, /^\/admin\/chat\/\d+$/);
+  const general = Number(res.location.split('/').pop());
+  await owner.get(res.location);
+  res = await owner.post(`/admin/chat/${general}/messages`, { body: 'Hello team @ravi' }, { json: true });
+  assert.equal(res.status, 201);
+
+  await ravi.b.get('/admin/chat');
+  const page = await ravi.b.get(`/admin/chat/${general}`);
+  assert.match(page.text, /Hello team @ravi/, 'messages are embedded for the page script');
+
+  // Live delivery: Ravi's tab is long-polling when Meena posts.
+  await ravi.b.get('/admin');
+  const conn = (await ravi.b.post('/api/rt/connect', {}, { json: true })).json();
+  const waiting = ravi.b.post('/api/rt/poll', { cid: conn.cid, key: conn.key, after: conn.seq }, { json: true });
+  await meena.b.get(`/admin/chat/${general}`);
+  await meena.b.post(`/admin/chat/${general}/messages`, { body: 'Standup at 10' }, { json: true });
+  const polled = (await waiting).json();
+  const ev = polled.events.find((e) => e.type === 'chat.message');
+  assert.equal(ev.data.message.body, 'Standup at 10');
+  assert.ok(polled.online.includes(ravi.id));
+  // Someone else's connection key doesn't work.
+  assert.equal((await meena.b.post('/api/rt/poll', { cid: conn.cid, key: 'nope', after: 0 }, { json: true })).status, 401);
+
+  // A 1:1 chat is private to its two members, and asking again reuses it.
+  res = await owner.post('/admin/chat/new', { user_ids: [String(ravi.id)] });
+  const dm = Number(res.location.split('/').pop());
+  assert.equal((await owner.post('/admin/chat/new', { user_ids: [String(ravi.id)] })).location, `/admin/chat/${dm}`);
+  await owner.get(`/admin/chat/${dm}`);
+  await owner.post(`/admin/chat/${dm}/messages`, { body: 'Salary slips are ready' }, { json: true });
+  assert.equal((await meena.b.get(`/admin/chat/${dm}`)).status, 404);
+  assert.equal((await meena.b.post(`/admin/chat/${dm}/messages`, { body: 'x' }, { json: true })).status, 404);
+  assert.match((await ravi.b.get('/admin')).text, /data-count="chat">2</, 'one unread in #general, one in the DM');
+
+  // Files: stored in the database, served only to members.
+  const up = await fetch(`${base}/admin/chat/${dm}/files`, {
+    method: 'POST', body: Buffer.from('%PDF-1.4 test'),
+    headers: { cookie: owner.header(), 'content-type': 'application/pdf', 'x-file-name': encodeURIComponent('Q3 report.pdf'), 'x-csrf-token': owner.csrf },
+  });
+  assert.equal(up.status, 201);
+  const fileId = (await up.json()).message.file.id;
+  const dl = await fetch(`${base}/admin/chat/files/${fileId}`, { headers: { cookie: ravi.b.header() } });
+  assert.equal(dl.status, 200);
+  assert.match(dl.headers.get('content-disposition'), /^attachment/);
+  assert.equal(await dl.text(), '%PDF-1.4 test');
+  assert.equal((await meena.b.get(`/admin/chat/files/${fileId}`)).status, 404);
+
+  // Only the author can edit or delete a message.
+  const msg = await db('messages').where({ channel_id: dm, body: 'Salary slips are ready' }).first();
+  assert.equal((await ravi.b.post(`/admin/chat/messages/${msg.id}/delete`, {}, { json: true })).status, 404);
+  res = await owner.post(`/admin/chat/messages/${msg.id}/edit`, { body: 'Salary slips are out' }, { json: true });
+  assert.equal(res.json().message.edited, true);
+
+  // Starting a call from chat creates a team-only meeting and posts a Join card.
+  res = await owner.post(`/admin/chat/${dm}/call`, {});
+  assert.match(res.location, /^\/meet\/[a-f0-9]{32}$/);
+  const call = await db('messages').where({ channel_id: dm, kind: 'call' }).first();
+  assert.ok(call.meeting_id);
+});
+
+test('meetings: invites, lobby, admission and signalling', async () => {
+  const { istToUtc, utcToIst } = require('../src/lib/util');
+  assert.equal(istToUtc('2026-10-15', '10:00'), '2026-10-15 04:30:00');
+  assert.deepEqual(utcToIst('2026-10-15 20:00:00'), { date: '2026-10-16', time: '01:30' });
+
+  const owner = new Browser();
+  await owner.login('owner@test.local', 'owner-password-1');
+  await owner.get('/admin/meetings/new');
+  const form = {
+    title: 'Kickoff with Acme', date: '2026-10-20', time: '15:00', duration_min: '45', agenda: 'Scope\nTimeline',
+    emails: 'cto@acme.test, bad-address', allow_guests: '1', send_invites: '1',
+  };
+  let res = await owner.post('/admin/meetings', form);
+  assert.equal(res.status, 422, 'invalid guest emails are caught');
+  res = await owner.post('/admin/meetings', { ...form, emails: 'cto@acme.test' });
+  const id = Number(res.location.split('/').pop());
+  const meeting = await db('meetings').where({ id }).first();
+  assert.equal(meeting.starts_at, '2026-10-20 09:30:00');
+  const mail = await db('email_log').where({ to_email: 'cto@acme.test' }).first();
+  assert.match(mail.subject, /invited: Kickoff with Acme/);
+  const ics = (await owner.get(`/admin/meetings/${id}/invite.ics`)).text;
+  assert.match(ics, /DTSTART:20261020T093000Z/);
+  assert.match(ics, /DTEND:20261020T101500Z/);
+  assert.match(ics, new RegExp(`/meet/${meeting.room_token}`));
+
+  // A guest opens the link, joins and waits in the lobby.
+  const guest = new Browser();
+  assert.equal((await guest.get(`/meet/${meeting.room_token}`)).status, 200);
+  const g = (await guest.post(`/meet/${meeting.room_token}/join`, { name: 'Acme CTO', mic: true, cam: true }, { json: true })).json();
+  assert.equal(g.state, 'waiting');
+  assert.equal((await guest.post(`/meet/${meeting.room_token}/signal`, { cid: g.cid, key: g.key, to: 'x', data: {} }, { json: true })).status, 409);
+
+  // The host joins, sees the lobby and admits the guest.
+  await owner.get(`/meet/${meeting.room_token}`);
+  const h = (await owner.post(`/meet/${meeting.room_token}/join`, { mic: true, cam: false }, { json: true })).json();
+  assert.equal(h.state, 'in');
+  assert.equal(h.waiting[0].name, 'Acme CTO');
+  const guestPoll = guest.post('/api/rt/poll', { cid: g.cid, key: g.key, after: g.seq }, { json: true });
+  res = await owner.post(`/meet/${meeting.room_token}/action`, { cid: h.cid, key: h.key, action: 'admit', target: g.cid }, { json: true });
+  assert.equal(res.status, 204);
+  const gp = (await guestPoll).json();
+  const admitted = gp.events.find((e) => e.type === 'room.admitted');
+  assert.equal(admitted.data.peers[0].cid, h.cid);
+
+  // Offers/answers are relayed between participants only.
+  res = await guest.post(`/meet/${meeting.room_token}/signal`, { cid: g.cid, key: g.key, to: h.cid, data: { description: { type: 'offer', sdp: 'v=0' } } }, { json: true });
+  assert.equal(res.status, 204);
+  const hostEvents = (await owner.post('/api/rt/poll', { cid: h.cid, key: h.key, after: h.seq }, { json: true })).json().events;
+  assert.ok(hostEvents.some((e) => e.type === 'room.joined' && e.data.peer.cid === g.cid));
+  const sig = hostEvents.find((e) => e.type === 'signal');
+  assert.equal(sig.data.from, g.cid);
+  assert.equal(sig.data.data.description.type, 'offer');
+
+  // Guests can't use host controls; the meeting page shows it as live.
+  assert.equal((await guest.post(`/meet/${meeting.room_token}/action`, { cid: g.cid, key: g.key, action: 'remove', target: h.cid }, { json: true })).status, 409);
+  assert.match((await owner.get(`/admin/meetings/${id}`)).text, /Live · 2 in call/);
+
+  // Team-only meetings turn guests away; cancelled ones are closed.
+  await db('meetings').where({ id }).update({ allow_guests: false });
+  assert.equal((await new Browser().get(`/meet/${meeting.room_token}`)).status, 403);
+  await owner.get(`/admin/meetings/${id}`);
+  await owner.post(`/admin/meetings/${id}/cancel`, { notify: '1' });
+  assert.equal((await new Browser().get(`/meet/${meeting.room_token}`)).status, 410);
+  assert.ok(await db('email_log').where({ to_email: 'cto@acme.test' }).where('subject', 'like', 'Cancelled%').first());
+});
+
+test('announcements: admins post, everyone reads', async () => {
+  const owner = new Browser();
+  await owner.login('owner@test.local', 'owner-password-1');
+  const priya = await staffUser('Priya S', 'priya@test.local');
+
+  await owner.get('/admin/announcements');
+  await owner.post('/admin/announcements', { title: 'Office closed Friday', body: 'Diwali holiday.', important: '1', pinned: '1' });
+  await priya.b.get('/admin/announcements');
+  assert.equal((await priya.b.post('/admin/announcements', { title: 'x', body: 'y' })).status, 403, 'staff cannot post');
+
+  await db('announcement_reads').where({ user_id: priya.id }).del();
+  let page = await priya.b.get('/admin');
+  assert.match(page.text, /Office closed Friday/, 'shown on the dashboard until read');
+  assert.match(page.text, /data-count="announcements">1</);
+  await priya.b.get('/admin/announcements');
+  page = await priya.b.get('/admin');
+  assert.doesNotMatch(page.text, /class="news-banner/);
+  assert.match((await owner.get('/admin/announcements')).text, /Seen by 2 of/);
+
+  // The calendar renders the month with meetings and deadlines.
+  assert.equal((await owner.get('/admin/calendar?month=2026-10')).status, 200);
 });

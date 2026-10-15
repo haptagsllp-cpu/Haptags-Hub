@@ -1,0 +1,45 @@
+<div class="page-head">
+  <div><h1>Announcements</h1><div class="sub">News and notices for the whole team.</div></div>
+</div>
+<div class="split">
+  <div class="stack">
+    <% if (!rows.length) { %><div class="card"><div class="empty"><%- h.icon('megaphone', 30) %><b>No announcements yet</b><%= isAdmin ? 'Post the first one for the team.' : 'Updates from the owners and admins will show up here.' %></div></div><% } %>
+    <% rows.forEach(function (a) { const seen = receipts[a.id] || []; %>
+    <article class="card announcement<%= a.important ? ' important' : '' %><%= a.unread ? ' unread' : '' %>">
+      <div class="card-body">
+        <div class="row-between mb-8">
+          <div class="row">
+            <% if (a.pinned) { %><span class="badge tone-blue"><%- h.icon('pin', 12) %> Pinned</span><% } %>
+            <% if (a.important) { %><span class="badge tone-red">Important</span><% } %>
+            <% if (a.unread) { %><span class="badge tone-violet">New</span><% } %>
+          </div>
+          <% if (isAdmin) { %>
+          <div class="row">
+            <form method="post" action="/admin/announcements/<%= a.id %>/pin" class="inline"><%- include('../../partials/csrf') %><button class="btn btn-ghost btn-sm" type="submit"><%= a.pinned ? 'Unpin' : 'Pin' %></button></form>
+            <form method="post" action="/admin/announcements/<%= a.id %>/delete" class="inline" data-confirm="Delete this announcement?"><%- include('../../partials/csrf') %><button class="btn btn-danger btn-sm" type="submit" aria-label="Delete"><%- h.icon('trash', 15) %></button></form>
+          </div>
+          <% } %>
+        </div>
+        <h2><%= a.title %></h2>
+        <div class="prose"><%- h.nl2br(a.body) %></div>
+        <div class="meta mt-16"><span class="avatar avatar-xs"><%= h.initials(a.author_name) %></span> <%= a.author_name || 'Someone' %> · <%= h.dateTime(a.created_at) %>
+          <% if (isAdmin) { %> · <details class="seen inline-details"><summary>Seen by <%= seen.length %> of <%= staffCount %></summary><div class="small muted"><%= seen.length ? seen.join(', ') : 'Nobody yet' %></div></details><% } %>
+        </div>
+      </div>
+    </article>
+    <% }) %>
+    <%- include('../../partials/pager', { pagerBase: '/admin/announcements', pagerQuery: {} }) %>
+  </div>
+  <% if (isAdmin) { %>
+  <form method="post" action="/admin/announcements" class="card card-pad">
+    <%- include('../../partials/csrf') %>
+    <h3>Post an announcement</h3>
+    <div class="field"><label for="a-title">Title</label><input id="a-title" name="title" type="text" maxlength="190" required></div>
+    <div class="field"><label for="a-body">Message</label><textarea id="a-body" name="body" rows="6" required></textarea></div>
+    <label class="check small"><input type="checkbox" name="important" value="1"> Mark as important</label>
+    <label class="check small mt-8"><input type="checkbox" name="pinned" value="1"> Pin to the top</label>
+    <label class="check small mt-8 mb-16"><input type="checkbox" name="email" value="1"> Also email the team</label>
+    <button class="btn btn-block" type="submit"><%- h.icon('megaphone', 16) %> Post</button>
+  </form>
+  <% } %>
+</div>

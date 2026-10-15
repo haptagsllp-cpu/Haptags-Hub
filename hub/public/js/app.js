@@ -33,6 +33,26 @@
     if (!e.defaultPrevented && btn && !f.hasAttribute('data-no-disable')) setTimeout(function () { btn.disabled = true; }, 0);
   });
 
+  // Dialogs: data-dialog="#id" opens a <dialog>; data-close or a click on the backdrop closes it.
+  document.addEventListener('click', function (e) {
+    var opener = e.target.closest('[data-dialog]');
+    if (opener) {
+      var d = $(opener.getAttribute('data-dialog'));
+      if (d && d.showModal) { e.preventDefault(); d.showModal(); }
+      return;
+    }
+    if (e.target.closest('[data-close]')) { var c = e.target.closest('dialog'); if (c) c.close(); return; }
+    if (e.target.tagName === 'DIALOG') e.target.close();
+  });
+
+  // Show a block while a checkbox is ticked: data-toggle-target="#id"
+  $$('[data-toggle-target]').forEach(function (cb) {
+    var target = $(cb.getAttribute('data-toggle-target'));
+    if (!target) return;
+    var sync = function () { target.hidden = !cb.checked; };
+    cb.addEventListener('change', sync); sync();
+  });
+
   // Auto-submit filters
   $$('[data-autosubmit]').forEach(function (el) { el.addEventListener('change', function () { el.form.submit(); }); });
 

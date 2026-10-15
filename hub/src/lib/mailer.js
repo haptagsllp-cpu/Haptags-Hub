@@ -51,17 +51,18 @@ function htmlToText(html) {
 }
 
 /**
- * Sends (or, without SMTP, records) an email. Never throws: a mail failure must not
+ * Sends (or, without SMTP, records) an email. `icalEvent` ({ method, content }) attaches a calendar
+ * invite that Gmail and Outlook show with Yes/No buttons. Never throws: a mail failure must not
  * break the business action that triggered it. Returns true when the message went out.
  */
-async function sendMail({ to, subject, replyTo, related, ...content }) {
+async function sendMail({ to, subject, replyTo, related, icalEvent, ...content }) {
   if (!to) return false;
   const html = await renderEmail(content);
   let status = 'not_configured';
   let error = null;
   if (transport) {
     try {
-      await transport.sendMail({ from: config.mailFrom, to, replyTo, subject, html, text: htmlToText(html) });
+      await transport.sendMail({ from: config.mailFrom, to, replyTo, subject, html, text: htmlToText(html), icalEvent });
       status = 'sent';
     } catch (err) {
       status = 'failed';

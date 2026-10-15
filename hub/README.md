@@ -15,6 +15,27 @@ haptags.com, which stays as it is.
 | Automation (hourly) | Marks invoices overdue, bills retainers, expires old quotes, and sends payment reminders 3 days before the due date, on the due date, then 3, 7, 14 and 30 days after. |
 | Client portal | Projects with milestones, updates and files, invoices with Pay now, quotations to approve, and support tickets. Each client sees only their own data. |
 | Team | Owner, admin and staff roles. Invites by email or a copyable link. Email log. |
+| Chat | Public and private channels, 1:1 and group chats, files up to 8 MB (paste, drag or attach), @mentions, edit and delete, typing and online indicators, unread badges. **Call** starts a video call with everyone in the conversation and rings their tabs. |
+| Meetings | Schedule with team members and outside guests. Invitations are emailed with a calendar invite (Gmail/Outlook Yes/No buttons, 10-minute alert). **Meet now** opens an instant room. Join links can be shared on WhatsApp. RSVP, edit, and cancel with notice. |
+| Video room | Runs in the browser at `/meet/<link>`. Camera and mic check before joining, screen sharing, raise hand, reactions, in-call chat, and speaking indicators. Guests wait in a lobby until a team member admits them. Hosts can mute or remove people, or end the meeting for everyone. |
+| Calendar | A month view of your meetings, project deadlines and lead follow-ups (yours or the whole team's). Click a day to schedule. |
+| Announcements | Owners and admins post, with options to pin, mark important and email the team. They show on everyone's dashboard until read, and admins can see who has read each one. |
+
+Notifications arrive live in any open Hub tab (toasts and badges), and as desktop notifications
+when the tab is in the background.
+
+### How the real-time parts work
+
+- Browsers long-poll `/api/rt/poll`. This works through Hostinger's proxy, where WebSockets
+  often don't. Events stay in memory for a few minutes, and the database stays the source of
+  truth, so after a restart tabs reconnect and reload anything they missed.
+- Video is peer-to-peer WebRTC: every participant connects to every other one, and the server
+  only relays the connection handshake. That suits calls of up to about 6–8 people with video
+  (more with cameras off).
+- The real-time state lives in one Node process. Run the app as a single instance.
+- STUN servers (Cloudflare and Google) let most networks connect directly. A few corporate and
+  mobile networks block that. For those, add a TURN relay with `TURN_URL`, `TURN_USERNAME` and
+  `TURN_CREDENTIAL`, for example a self-hosted coturn or a hosted provider.
 
 ## Run locally
 
@@ -25,7 +46,9 @@ npm run dev            # http://localhost:3000
 npm test               # end-to-end flows
 ```
 
-Demo sign-ins: `demo@haptags.local` and `client@haptags.local`, both with the password `demo-password-123`.
+Demo sign-ins: `demo@haptags.local` (owner), `staff@haptags.local` (staff) and `client@haptags.local`,
+all with the password `demo-password-123`. To try a call, open a meeting in one browser and its
+link in a private window.
 
 Without `DB_HOST` the app uses SQLite at `data/hub.sqlite`. With `DB_HOST` it uses MySQL. Migrations
 run automatically on start.

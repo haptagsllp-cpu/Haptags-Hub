@@ -1,0 +1,30 @@
+<% const editing = Boolean(meeting.id); const chosen = (meeting.user_ids || []).map(Number); %>
+<div class="crumbs"><a href="/admin/meetings">Meetings</a> / <%= editing ? 'Edit' : 'New' %></div>
+<div class="page-head"><h1><%= editing ? 'Edit meeting' : 'Schedule a meeting' %></h1></div>
+<form method="post" action="/admin/meetings<%= editing ? '/' + meeting.id : '' %>" class="card card-pad" style="max-width:820px" novalidate>
+  <%- include('../../partials/csrf') %>
+  <div class="form-grid">
+    <div class="field full"><label for="title">Title *</label><input id="title" name="title" type="text" maxlength="190" value="<%= meeting.title || '' %>" placeholder="e.g. Website kickoff with Acme" <%- errors.title ? 'aria-invalid="true"' : '' %> autofocus><% if (errors.title) { %><div class="error"><%= errors.title %></div><% } %></div>
+    <div class="field"><label for="date">Date *</label><input id="date" name="date" type="date" value="<%= meeting.date || '' %>" <%- errors.date ? 'aria-invalid="true"' : '' %>><% if (errors.date) { %><div class="error"><%= errors.date %></div><% } %></div>
+    <div class="form-grid mb-0" style="gap:0 12px">
+      <div class="field"><label for="time">Start (IST) *</label><input id="time" name="time" type="time" step="300" value="<%= meeting.time || '' %>"></div>
+      <div class="field"><label for="duration_min">Duration</label><select id="duration_min" name="duration_min"><% durations.forEach(function (d) { %><option value="<%= d %>" <%= h.selected(meeting.duration_min, d) %>><%= d < 60 ? d + ' min' : (d / 60) + (d === 60 ? ' hour' : ' hours') %></option><% }) %></select></div>
+    </div>
+    <div class="field full"><label for="agenda">Agenda</label><textarea id="agenda" name="agenda" rows="4" placeholder="What you’ll cover, links to review beforehand…"><%= meeting.agenda || '' %></textarea></div>
+    <div class="field full">
+      <label>Team members</label>
+      <div class="pick-list pick-grid">
+        <% team.filter(function (u) { return u.id !== user.id; }).forEach(function (u) { %>
+        <label class="check pick"><input type="checkbox" name="user_ids" value="<%= u.id %>" <%= chosen.indexOf(u.id) !== -1 ? 'checked' : '' %>><span class="avatar avatar-sm"><%= h.initials(u.name) %></span><span><%= u.name %></span></label>
+        <% }) %>
+      </div>
+      <% if (team.length <= 1) { %><div class="hint">Nobody else is on the team yet. <a href="/admin/team">Invite people</a>.</div><% } %>
+    </div>
+    <div class="field full"><label for="emails">Guests (clients, partners)</label><textarea id="emails" name="emails" rows="2" placeholder="name@company.com, another@client.in" <%- errors.emails ? 'aria-invalid="true"' : '' %>><%= meeting.emails || '' %></textarea><div class="hint">Separate addresses with commas. Each guest gets an email with the join link and a calendar invite.</div><% if (errors.emails) { %><div class="error"><%= errors.emails %></div><% } %></div>
+    <div class="field full">
+      <label class="check"><input type="checkbox" name="allow_guests" value="1" <%= h.checked(meeting.allow_guests) %>> Let people outside the team join with the link. They wait in a lobby until someone from the team lets them in.</label>
+      <label class="check mt-8"><input type="checkbox" name="send_invites" value="1" checked> <%= editing ? 'Email new invitees, and everyone if the time changed' : 'Email invitations now' %></label>
+    </div>
+  </div>
+  <div class="form-actions"><button class="btn" type="submit"><%= editing ? 'Save changes' : 'Schedule meeting' %></button><a class="btn btn-ghost" href="<%= editing ? '/admin/meetings/' + meeting.id : '/admin/meetings' %>">Cancel</a></div>
+</form>

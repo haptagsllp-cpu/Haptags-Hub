@@ -1,0 +1,106 @@
+<div class="room" data-room>
+  <section class="prejoin" data-stage="prejoin">
+    <div class="prejoin-card">
+      <div class="prejoin-video">
+        <video data-preview autoplay muted playsinline></video>
+        <div class="prejoin-off" data-preview-off><span class="avatar avatar-xl" data-preview-initials><%= h.initials(defaultName || '?') %></span></div>
+        <div class="prejoin-controls">
+          <button class="ctl" type="button" data-pre="mic" aria-pressed="true" title="Microphone"><span class="i-on"><%- h.icon('mic', 20) %></span><span class="i-off"><%- h.icon('mic-off', 20) %></span></button>
+          <button class="ctl" type="button" data-pre="cam" aria-pressed="true" title="Camera"><span class="i-on"><%- h.icon('video', 20) %></span><span class="i-off"><%- h.icon('video-off', 20) %></span></button>
+        </div>
+      </div>
+      <div class="prejoin-side">
+        <div class="room-brand"><img src="/static/img/haptags-mark.webp" alt=""><span>HAPTAGS</span></div>
+        <h1><%= meeting.title %></h1>
+        <p class="muted"><%= h.date(h.ist(meeting.starts_at).date) %> · <%= h.time(meeting.starts_at) %> – <%= h.time(endsAt) %> IST<% if (organizer) { %> · <%= organizer.name %><% } %></p>
+        <form data-join-form novalidate>
+          <div class="field">
+            <label for="join-name">Your name</label>
+            <input id="join-name" name="name" type="text" maxlength="60" autocomplete="name" value="<%= defaultName %>" <%= host ? 'readonly' : '' %> required>
+          </div>
+          <button class="btn btn-lg btn-block" type="submit" data-join-btn>Join now</button>
+          <div class="error mt-8" data-join-error role="alert"></div>
+        </form>
+        <p class="small muted mt-16" data-media-msg>Checking your camera and microphone…</p>
+        <% if (!host) { %><p class="small muted">Someone from Haptags will let you in.</p><% } %>
+      </div>
+    </div>
+  </section>
+
+  <section class="room-center" data-stage="waiting" hidden>
+    <div class="spinner" aria-hidden="true"></div>
+    <h2>Waiting to be let in</h2>
+    <p class="muted" data-wait-msg>Someone in the meeting will let you in shortly.</p>
+    <button class="btn btn-ghost" type="button" data-leave>Leave</button>
+  </section>
+
+  <section class="call" data-stage="call" hidden>
+    <header class="call-top">
+      <b class="call-title"><%= meeting.title %></b>
+      <span class="call-clock" data-clock>00:00</span>
+      <span class="spacer"></span>
+      <button class="call-chip" type="button" data-panel-btn="people"><%- h.icon('clients', 16) %> <span data-count>1</span></button>
+    </header>
+    <div class="lobby-alert" data-lobby-alert hidden></div>
+    <div class="call-body">
+      <div class="stage-grid" data-grid></div>
+      <aside class="call-panel" data-panel hidden>
+        <div class="panel-tabs">
+          <button type="button" data-panel-btn="people">People</button>
+          <button type="button" data-panel-btn="chat">Chat</button>
+          <button class="icon-btn" type="button" data-panel-close aria-label="Close panel"><%- h.icon('x', 18) %></button>
+        </div>
+        <div class="panel-pane" data-pane="people">
+          <div data-lobby-list></div>
+          <div class="panel-label">In the meeting</div>
+          <ul class="people" data-people></ul>
+          <% if (host) { %>
+          <div class="panel-foot">
+            <div class="copy-field"><input type="text" id="room-link" value="<%= baseUrl %>/meet/<%= meeting.room_token %>" readonly aria-label="Meeting link"><button class="btn btn-ghost btn-sm" type="button" data-copy="#room-link">Copy link</button></div>
+            <button class="btn btn-danger btn-block btn-sm mt-8" type="button" data-end>End meeting for everyone</button>
+          </div>
+          <% } %>
+        </div>
+        <div class="panel-pane" data-pane="chat" hidden>
+          <div class="room-chat" data-chat-list><p class="muted small">Messages here are seen by everyone in the call, and disappear when it ends.</p></div>
+          <form class="room-chat-form" data-chat-form>
+            <input type="text" maxlength="2000" placeholder="Send a message" aria-label="Message" autocomplete="off">
+            <button class="btn btn-sm" type="submit" aria-label="Send"><%- h.icon('send', 15) %></button>
+          </form>
+        </div>
+      </aside>
+    </div>
+    <footer class="call-bar">
+      <button class="ctl" type="button" data-ctl="mic" title="Mute / unmute (Ctrl+D)"><span class="i-on"><%- h.icon('mic', 22) %></span><span class="i-off"><%- h.icon('mic-off', 22) %></span><span class="ctl-label">Mic</span></button>
+      <button class="ctl" type="button" data-ctl="cam" title="Camera on / off (Ctrl+E)"><span class="i-on"><%- h.icon('video', 22) %></span><span class="i-off"><%- h.icon('video-off', 22) %></span><span class="ctl-label">Camera</span></button>
+      <button class="ctl" type="button" data-ctl="share" title="Share your screen"><%- h.icon('screen', 22) %><span class="ctl-label">Share</span></button>
+      <button class="ctl" type="button" data-ctl="hand" title="Raise hand"><%- h.icon('hand', 22) %><span class="ctl-label">Raise</span></button>
+      <div class="react-wrap">
+        <button class="ctl" type="button" data-ctl="react" title="React"><%- h.icon('smile', 22) %><span class="ctl-label">React</span></button>
+        <div class="react-pop" data-react-pop hidden><% ['👍', '👏', '❤️', '😂', '🎉', '😮'].forEach(function (e) { %><button type="button" data-emoji="<%= e %>"><%= e %></button><% }) %></div>
+      </div>
+      <button class="ctl" type="button" data-ctl="chat" title="Chat"><%- h.icon('chat', 22) %><span class="ctl-label">Chat</span><span class="ctl-badge" data-chat-badge hidden></span></button>
+      <button class="ctl ctl-leave" type="button" data-leave title="Leave"><%- h.icon('phone-off', 22) %><span class="ctl-label">Leave</span></button>
+    </footer>
+  </section>
+
+  <section class="room-center" data-stage="ended" hidden>
+    <h2 data-ended-title>You left the meeting</h2>
+    <p class="muted" data-ended-msg></p>
+    <div class="row" style="justify-content:center">
+      <a class="btn" href="/meet/<%= meeting.room_token %>" data-rejoin>Rejoin</a>
+      <% if (room.back) { %><a class="btn btn-ghost" href="<%= room.back %>">Back to Haptags Hub</a><% } %>
+    </div>
+  </section>
+</div>
+
+<template id="tile-tpl">
+  <div class="tile">
+    <video autoplay playsinline></video>
+    <div class="tile-avatar"><span class="avatar avatar-xl"></span></div>
+    <div class="tile-name"><span class="tile-mic"><%- h.icon('mic-off', 14) %></span><span class="tile-hand" title="Hand raised">✋</span><span data-name></span></div>
+    <div class="tile-status" hidden></div>
+    <div class="tile-react" aria-hidden="true"></div>
+  </div>
+</template>
+<script type="application/json" id="room-data"><%- h.json(Object.assign({}, room, { name: defaultName })) %></script>

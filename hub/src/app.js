@@ -89,6 +89,8 @@ app.use(loadUser);
 app.use(flash);
 app.use(csrf);
 
+app.use('/api/rt', require('./routes/realtime'));
+app.use(require('./routes/meet'));
 app.use(require('./routes/public'));
 app.use(require('./routes/auth'));
 app.use('/admin', requireStaff, require('./routes/admin'));

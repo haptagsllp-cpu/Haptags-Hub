@@ -10,7 +10,9 @@ const { getSettings, setSettings } = require('../src/lib/settings');
 const { createInvoice, issueInvoice, recordPayment, replaceItems, nextNumber } = require('../src/lib/billing');
 const { computeTotals } = require('../src/lib/money');
 const { createLead } = require('../src/lib/leads');
-const { nowSql, todayIST, addDays, addMonths, randomToken } = require('../src/lib/util');
+const { nowSql, todayIST, addDays, addMonths, randomToken, istToUtc, addMinutesSql } = require('../src/lib/util');
+const chat = require('../src/lib/chat');
+const { createMeeting } = require('../src/lib/meetings');
 
 if (config.isProd || config.db.client !== 'better-sqlite3') {
   console.error('seed-demo only runs against the local SQLite database.');
@@ -107,7 +109,27 @@ async function main() {
   const [tid] = await db('tickets').insert({ client_id: ids[0], project_id: p1, subject: 'Change hero image on homepage', status: 'open', priority: 'normal', created_by: clientUser.id, last_reply_at: nowSql(), last_reply_by: 'client', created_at: nowSql(), updated_at: nowSql() });
   await db('ticket_messages').insert({ ticket_id: tid, user_id: clientUser.id, body: 'Can we use the new showroom photo on the homepage banner?', internal: false, created_at: nowSql() });
 
-  console.log('Demo data ready.\n  Team:   demo@haptags.local / demo-password-123\n  Client: client@haptags.local / demo-password-123');
+  // Workspace: a teammate, some chat, today's meetings and an announcement.
+  const [staffId] = await db('users').insert({ name: 'Arjun Shetty', email: 'staff@haptags.local', role: 'staff', password_hash: pw, is_active: true, token_version: 1, created_at: nowSql(), updated_at: nowSql() });
+  await chat.ensureMemberships(ownerId);
+  await chat.ensureMemberships(staffId);
+  const general = await db('channels').where({ name: 'general' }).first();
+  await chat.postMessage({ channelId: general.id, userId: ownerId, body: 'Morning team! Standup at 10:30 today. Please update your project milestones before then.' });
+  await chat.postMessage({ channelId: general.id, userId: staffId, body: 'Done. The Menon Exports homepage draft is ready for review: https://www.haptags.com' });
+  const dm = await chat.directChannel(ownerId, staffId);
+  await chat.postMessage({ channelId: dm, userId: staffId, body: 'Can we move the client call to 4pm?' });
+  const now = nowSql();
+  await createMeeting({ title: 'Daily standup', agenda: 'Yesterday, today, blockers', startsAt: istToUtc(today, '10:30'), duration: 15, createdBy: ownerId, userIds: [staffId] });
+  await createMeeting({
+    title: 'Website review with Menon Exports', agenda: 'Walk through the homepage draft\nAgree on launch date',
+    startsAt: addMinutesSql(now, 20), duration: 45, createdBy: ownerId, userIds: [staffId], emails: ['asha@menon.example'],
+  });
+  await db('announcements').insert({
+    title: 'Diwali holidays', body: 'The office is closed on Friday and Monday. Please hand over anything urgent by Thursday evening.',
+    important: true, pinned: true, created_by: ownerId, created_at: now, updated_at: now,
+  });
+
+  console.log('Demo data ready.\n  Team:   demo@haptags.local / demo-password-123 (also staff@haptags.local)\n  Client: client@haptags.local / demo-password-123');
 }
 
 main().then(() => db.destroy()).catch((err) => {

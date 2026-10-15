@@ -1,0 +1,33 @@
+<div class="page-head">
+  <div><h1>Calendar</h1><div class="sub">Meetings, project deadlines and lead follow-ups, in India time.</div></div>
+  <div class="actions">
+    <a class="btn btn-ghost" href="/admin/calendar?month=<%= prev %><%= mine ? '' : '&scope=team' %>" aria-label="Previous month"><%- h.icon('back', 16) %></a>
+    <a class="btn btn-ghost" href="/admin/calendar<%= mine ? '' : '?scope=team' %>">Today</a>
+    <a class="btn btn-ghost" href="/admin/calendar?month=<%= next %><%= mine ? '' : '&scope=team' %>" aria-label="Next month"><%- h.icon('arrow', 16) %></a>
+    <a class="btn" href="/admin/meetings/new"><%- h.icon('plus', 16) %> Meeting</a>
+  </div>
+</div>
+<div class="row-between mb-16">
+  <h2 class="mb-0"><%= label %></h2>
+  <nav class="tabs mb-0">
+    <a href="/admin/calendar?month=<%= month %>" class="<%= mine ? 'active' : '' %>">Mine</a>
+    <a href="/admin/calendar?month=<%= month %>&scope=team" class="<%= mine ? '' : 'active' %>">Whole team</a>
+  </nav>
+</div>
+<div class="card cal">
+  <div class="cal-head"><% ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].forEach(function (d) { %><div><%= d %></div><% }) %></div>
+  <div class="cal-grid">
+    <% grid.forEach(function (d) { %>
+    <div class="cal-day<%= d.inMonth ? '' : ' out' %><%= d.today ? ' today' : '' %>">
+      <a class="cal-date" href="/admin/meetings/new?date=<%= d.date %>" title="Schedule a meeting on <%= h.date(d.date) %>"><%= d.day %></a>
+      <% d.items.slice(0, 4).forEach(function (it) { %>
+      <a class="cal-item k-<%= it.kind %>" href="<%= it.href %>" title="<%= (it.time ? it.time + ' ' : '') + it.title %>"><% if (it.time) { %><b><%= it.time %></b> <% } %><%= it.title %></a>
+      <% }) %>
+      <% if (d.items.length > 4) { %><span class="cal-more">+<%= d.items.length - 4 %> more</span><% } %>
+    </div>
+    <% }) %>
+  </div>
+</div>
+<div class="row small muted mt-8">
+  <span class="cal-key k-meeting">Meeting</span><span class="cal-key k-project">Project due</span><span class="cal-key k-lead">Lead follow-up</span>
+</div>
