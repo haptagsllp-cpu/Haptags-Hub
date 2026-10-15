@@ -20,6 +20,7 @@ Object.assign(process.env, {
   ADMIN_EMAIL: 'owner@test.local',
   ADMIN_PASSWORD: 'owner-password-1',
   NODE_ENV: 'test',
+  LMS_KEY_SHA256: crypto.createHash('sha256').update('test-lms-key').digest('hex'),
 });
 
 const { db, migrate } = require('../src/db');
@@ -429,4 +430,38 @@ test('announcements: admins post, everyone reads', async () => {
 
   // The calendar renders the month with meetings and deadlines.
   assert.equal((await owner.get('/admin/calendar?month=2026-10')).status, 200);
+});
+
+test('LMS daily doubt session: one meeting per course per day, students invited once', async () => {
+  const post = (body, key = 'test-lms-key') => fetch(`${base}/api/v1/lms/doubt-session`, {
+    method: 'POST', headers: { 'content-type': 'application/json', 'x-api-key': key }, body: JSON.stringify(body),
+  });
+  let res = await post({ course_slug: 'java-internship-training', course_title: 'Java Internship Training' }, 'wrong');
+  assert.equal(res.status, 401);
+  res = await post({ course_slug: '', course_title: 'x' });
+  assert.equal(res.status, 422);
+
+  const body = { course_slug: 'java-internship-training', course_title: 'Java Internship Training', student_email: 'Stu1@Example.test', student_name: 'Stu One' };
+  res = await post(body);
+  assert.equal(res.status, 200);
+  const first = await res.json();
+  assert.match(first.join_url, /\/meet\/[a-f0-9]{32}$/);
+  assert.match(first.starts_at, /T13:30:00Z$/); // 19:00 IST
+  assert.equal(first.duration_min, 60);
+  const again = await (await post(body)).json();
+  assert.equal(again.join_url, first.join_url, 'same course + day reuses the meeting');
+  const other = await (await post({ ...body, student_email: 'stu2@example.test' })).json();
+  assert.equal(other.join_url, first.join_url);
+  const diff = await (await post({ ...body, course_slug: 'sql-internship-training', course_title: 'SQL' })).json();
+  assert.notEqual(diff.join_url, first.join_url, 'each course has its own session');
+
+  const token = first.join_url.split('/').pop();
+  const meeting = await db('meetings').where({ room_token: token }).first();
+  assert.ok(meeting.allow_guests, 'students join as guests');
+  assert.ok(meeting.title.includes('Java Internship Training'));
+  const invitees = await db('meeting_invitees').where({ meeting_id: meeting.id }).pluck('email');
+  assert.deepEqual(invitees.sort(), ['stu1@example.test', 'stu2@example.test']);
+  assert.equal(Number((await db('lms_sessions').count({ n: '*' }).first()).n), 2);
+  const room = await fetch(`${base}/meet/${token}`);
+  assert.equal(room.status, 200, 'students can open the room as guests');
 });

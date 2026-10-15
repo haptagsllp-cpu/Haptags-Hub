@@ -90,6 +90,25 @@ The field names match the existing form (`service`, `budget` and `timeline` valu
 API answers `201` for a new lead and `200` with `duplicate: true` when the enquiry merged into an
 open lead.
 
+## Haptags LMS doubt sessions
+
+lms.haptags.com students on the full package get a daily live doubt-clearing session per course.
+The LMS server calls `POST /api/v1/lms/doubt-session` with header `X-API-Key` and
+`{ course_slug, course_title, student_email, student_name }`. Hub creates that course's meeting
+for the day the first time it's requested (organised by the first owner, or `LMS_HOST_EMAIL`),
+adds the student as a guest, and emails them the calendar invite once. It answers with
+`join_url`, `starts_at` and `duration_min`. After today's session ends, it returns tomorrow's.
+
+The sessions show up in the organiser's Meetings and Calendar like any other meeting. Students
+wait in the lobby until someone from the team admits them.
+
+| Variable | Default |
+|---|---|
+| `LMS_SESSION_TIME` | `19:00` (IST) |
+| `LMS_SESSION_MINUTES` | `60` |
+| `LMS_HOST_EMAIL` | first owner |
+| `LMS_KEY_SHA256` | SHA-256 of the key that lms.haptags.com uses |
+
 ## Razorpay
 
 1. Set `RAZORPAY_KEY_ID` and `RAZORPAY_KEY_SECRET`. A **Pay online** button then appears on unpaid

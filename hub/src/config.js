@@ -77,6 +77,15 @@ const config = {
 
   iceServers: iceServers(),
 
+  // Haptags LMS (lms.haptags.com) daily doubt sessions. The LMS server sends `X-API-Key`;
+  // only its SHA-256 is kept here, so the key itself never lives in this repository.
+  lms: {
+    keySha256: (env.LMS_KEY_SHA256 || '4c3eabeed667b9f03e87fea97a1e9275f78f758e337c9f7c570c483c16ec94d5').toLowerCase(),
+    sessionTime: env.LMS_SESSION_TIME || '19:00', // IST, every day
+    sessionMinutes: Number(env.LMS_SESSION_MINUTES) || 60,
+    hostEmail: env.LMS_HOST_EMAIL || '', // organiser; defaults to the first owner
+  },
+
   // Browser origins allowed to post enquiries straight to /api/v1/leads.
   leadOrigins: list(env.LEAD_ORIGINS || 'https://haptags.com,https://www.haptags.com'),
 };
