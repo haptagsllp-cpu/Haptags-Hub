@@ -64,6 +64,12 @@ router.get('/meet/:token', loadMeeting, async (req, res) => {
   });
 });
 
+// Who's already in the call, shown on the join screen (anyone with the link can see it, as in Meet).
+router.get('/meet/:token/status', loadMeeting, (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  res.json({ names: req.meeting.status === 'scheduled' ? rooms.whoIsIn(req.meeting.id) : [] });
+});
+
 router.post('/meet/:token/join', joinLimiter, loadMeeting, async (req, res) => {
   const m = req.meeting;
   const host = isStaff(req.user);

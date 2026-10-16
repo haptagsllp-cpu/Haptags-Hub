@@ -141,10 +141,16 @@ function liveCounts() {
   return out;
 }
 
+/** Names of the people in a room, for the "Ready to join?" screen. */
+function whoIsIn(meetingId) {
+  const room = rooms.get(meetingId);
+  return room ? peersIn(room).map((p) => p.name) : [];
+}
+
 function onRoomStart(fn) {
   startHooks.push(fn);
 }
 
 rt.onDisconnect((c) => leave(c.cid));
 
-module.exports = { join, leave, hostAction, setState, signal, chat, react, liveCounts, onRoomStart, peerOf };
+module.exports = { join, leave, hostAction, setState, signal, chat, react, liveCounts, whoIsIn, onRoomStart, peerOf };

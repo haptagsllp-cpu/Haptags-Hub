@@ -1,105 +1,178 @@
+<%
+  const when = h.date(h.ist(meeting.starts_at).date) + ' · ' + h.time(meeting.starts_at) + ' – ' + h.time(endsAt);
+  const ctl = function (on, off) { return '<span class="i-on">' + h.icon(on, 22) + '</span><span class="i-off">' + h.icon(off, 22) + '</span>'; };
+%>
 <div class="room" data-room>
-  <section class="prejoin" data-stage="prejoin">
-    <div class="prejoin-card">
-      <div class="prejoin-video">
-        <video data-preview autoplay muted playsinline></video>
-        <div class="prejoin-off" data-preview-off><span class="avatar avatar-xl" data-preview-initials><%= h.initials(defaultName || '?') %></span></div>
-        <div class="prejoin-controls">
-          <button class="ctl" type="button" data-pre="mic" aria-pressed="true" title="Microphone"><span class="i-on"><%- h.icon('mic', 20) %></span><span class="i-off"><%- h.icon('mic-off', 20) %></span></button>
-          <button class="ctl" type="button" data-pre="cam" aria-pressed="true" title="Camera"><span class="i-on"><%- h.icon('video', 20) %></span><span class="i-off"><%- h.icon('video-off', 20) %></span></button>
+
+  <!-- ===== Ready to join? ===== -->
+  <section class="pj" data-stage="prejoin">
+    <header class="pj-head">
+      <span class="pj-brand"><img src="/static/img/haptags-mark.webp" alt=""><b>Haptags</b> Meet</span>
+      <% if (user) { %><span class="pj-account"><span><%= user.email %></span><span class="avatar"><%= h.initials(user.name) %></span></span><% } %>
+    </header>
+    <div class="pj-main">
+      <div class="pj-left">
+        <div class="pj-video">
+          <video data-preview autoplay muted playsinline class="mirror"></video>
+          <div class="pj-msg" data-preview-msg>Camera is starting</div>
+          <div class="pj-name" data-preview-name><%= defaultName %></div>
+          <button class="pj-icon pj-more" type="button" data-open="settings" title="Settings" aria-label="Settings"><%- h.icon('more', 22) %></button>
+          <div class="pj-ctl">
+            <button class="rbtn" type="button" data-toggle="mic" title="Turn off microphone"><%- ctl('mic', 'mic-off') %></button>
+            <button class="rbtn" type="button" data-toggle="cam" title="Turn off camera"><%- ctl('video', 'video-off') %></button>
+          </div>
+          <button class="pj-icon pj-fx" type="button" data-open="effects" title="Backgrounds and effects" aria-label="Backgrounds and effects"><%- h.icon('effects', 22) %></button>
+        </div>
+        <div class="pj-devices">
+          <label class="dev"><%- h.icon('mic', 18) %><select data-device="audioinput" aria-label="Microphone"><option>Microphone</option></select></label>
+          <label class="dev" data-speaker-wrap><%- h.icon('speaker', 18) %><select data-device="audiooutput" aria-label="Speaker"><option>Default speaker</option></select></label>
+          <label class="dev"><%- h.icon('video', 18) %><select data-device="videoinput" aria-label="Camera"><option>Camera</option></select></label>
         </div>
       </div>
-      <div class="prejoin-side">
-        <div class="room-brand"><img src="/static/img/haptags-mark.webp" alt=""><span>HAPTAGS</span></div>
-        <h1><%= meeting.title %></h1>
-        <p class="muted"><%= h.date(h.ist(meeting.starts_at).date) %> · <%= h.time(meeting.starts_at) %> – <%= h.time(endsAt) %> IST<% if (organizer) { %> · <%= organizer.name %><% } %></p>
+      <div class="pj-right">
+        <h1>Ready to join?</h1>
+        <p class="pj-who" data-who>&nbsp;</p>
+        <p class="pj-meta"><b><%= meeting.title %></b><br><%= when %> IST<% if (organizer) { %> · <%= organizer.name %><% } %></p>
         <form data-join-form novalidate>
-          <div class="field">
-            <label for="join-name">Your name</label>
-            <input id="join-name" name="name" type="text" maxlength="60" autocomplete="name" value="<%= defaultName %>" <%= host ? 'readonly' : '' %> required>
-          </div>
-          <button class="btn btn-lg btn-block" type="submit" data-join-btn>Join now</button>
-          <div class="error mt-8" data-join-error role="alert"></div>
+          <% if (!host) { %>
+          <input id="join-name" class="pj-input" name="name" type="text" maxlength="60" autocomplete="name" placeholder="What’s your name?" value="<%= defaultName %>" aria-label="Your name" required>
+          <% } else { %>
+          <input id="join-name" name="name" type="hidden" value="<%= defaultName %>">
+          <% } %>
+          <button class="pill pill-primary" type="submit" data-join-btn><%= host ? 'Join now' : 'Ask to join' %></button>
+          <div class="pj-error" data-join-error role="alert"></div>
         </form>
-        <p class="small muted mt-16" data-media-msg>Checking your camera and microphone…</p>
-        <% if (!host) { %><p class="small muted">Someone from Haptags will let you in.</p><% } %>
+        <p class="pj-hint" data-media-msg></p>
       </div>
     </div>
   </section>
 
-  <section class="room-center" data-stage="waiting" hidden>
-    <div class="spinner" aria-hidden="true"></div>
-    <h2>Waiting to be let in</h2>
-    <p class="muted" data-wait-msg>Someone in the meeting will let you in shortly.</p>
-    <button class="btn btn-ghost" type="button" data-leave>Leave</button>
-  </section>
-
+  <!-- ===== Waiting room + call (dark) ===== -->
   <section class="call" data-stage="call" hidden>
-    <header class="call-top">
-      <b class="call-title"><%= meeting.title %></b>
-      <span class="call-clock" data-clock>00:00</span>
-      <span class="spacer"></span>
-      <button class="call-chip" type="button" data-panel-btn="people"><%- h.icon('clients', 16) %> <span data-count>1</span></button>
-    </header>
-    <div class="lobby-alert" data-lobby-alert hidden></div>
-    <div class="call-body">
-      <div class="stage-grid" data-grid></div>
-      <aside class="call-panel" data-panel hidden>
-        <div class="panel-tabs">
-          <button type="button" data-panel-btn="people">People</button>
-          <button type="button" data-panel-btn="chat">Chat</button>
-          <button class="icon-btn" type="button" data-panel-close aria-label="Close panel"><%- h.icon('x', 18) %></button>
+    <div class="call-main">
+      <div class="stage" data-stage-area>
+        <div class="tiles" data-grid></div>
+        <div class="waiting" data-waiting hidden>
+          <svg class="waiting-art" viewBox="0 0 220 150" aria-hidden="true">
+            <ellipse cx="110" cy="138" rx="92" ry="6" fill="#2b2d31"/>
+            <rect x="34" y="70" width="44" height="58" rx="10" fill="#34373c"/>
+            <rect x="142" y="70" width="44" height="58" rx="10" fill="#34373c"/>
+            <circle cx="56" cy="88" r="10" fill="#81c995"/>
+            <circle cx="110" cy="40" r="15" fill="#8ab4f8"/>
+            <path d="M86 128c0-30 10-52 24-52s24 22 24 52z" fill="#8ab4f8"/>
+            <path d="M154 96c6-12 18-12 22 0v20h-22z" fill="#fdd663"/>
+            <circle cx="165" cy="88" r="8" fill="#fdd663"/>
+          </svg>
+          <p class="waiting-text"><span class="spin" aria-hidden="true"></span><span data-wait-msg>Please wait until a meeting host brings you into the call</span></p>
         </div>
-        <div class="panel-pane" data-pane="people">
-          <div data-lobby-list></div>
-          <div class="panel-label">In the meeting</div>
-          <ul class="people" data-people></ul>
+        <div class="presenting" data-presenting hidden><%- h.icon('screen', 18) %> You’re presenting to everyone <button class="pill pill-light" type="button" data-ctl="share">Stop presenting</button></div>
+      </div>
+      <aside class="side" data-panel hidden>
+        <header class="side-head"><h2 data-panel-title>People</h2><button class="rbtn rbtn-plain" type="button" data-panel-close aria-label="Close"><%- h.icon('x', 20) %></button></header>
+        <div class="side-pane" data-pane="people">
           <% if (host) { %>
-          <div class="panel-foot">
-            <div class="copy-field"><input type="text" id="room-link" value="<%= baseUrl %>/meet/<%= meeting.room_token %>" readonly aria-label="Meeting link"><button class="btn btn-ghost btn-sm" type="button" data-copy="#room-link">Copy link</button></div>
-            <button class="btn btn-danger btn-block btn-sm mt-8" type="button" data-end>End meeting for everyone</button>
-          </div>
+          <div class="side-link"><div class="copy-field"><input type="text" id="room-link" value="<%= baseUrl %>/meet/<%= meeting.room_token %>" readonly aria-label="Meeting link"><button class="pill pill-light" type="button" data-copy="#room-link"><%- h.icon('copy', 16) %> Copy</button></div></div>
           <% } %>
+          <div data-lobby-list></div>
+          <div class="side-label">In the meeting</div>
+          <ul class="people" data-people></ul>
         </div>
-        <div class="panel-pane" data-pane="chat" hidden>
-          <div class="room-chat" data-chat-list><p class="muted small">Messages here are seen by everyone in the call, and disappear when it ends.</p></div>
+        <div class="side-pane" data-pane="chat" hidden>
+          <p class="side-note">Messages can only be seen by people in the call and are deleted when the call ends.</p>
+          <div class="room-chat" data-chat-list></div>
           <form class="room-chat-form" data-chat-form>
             <input type="text" maxlength="2000" placeholder="Send a message" aria-label="Message" autocomplete="off">
-            <button class="btn btn-sm" type="submit" aria-label="Send"><%- h.icon('send', 15) %></button>
+            <button class="rbtn rbtn-plain" type="submit" aria-label="Send"><%- h.icon('send', 18) %></button>
           </form>
         </div>
       </aside>
     </div>
-    <footer class="call-bar">
-      <button class="ctl" type="button" data-ctl="mic" title="Mute / unmute (Ctrl+D)"><span class="i-on"><%- h.icon('mic', 22) %></span><span class="i-off"><%- h.icon('mic-off', 22) %></span><span class="ctl-label">Mic</span></button>
-      <button class="ctl" type="button" data-ctl="cam" title="Camera on / off (Ctrl+E)"><span class="i-on"><%- h.icon('video', 22) %></span><span class="i-off"><%- h.icon('video-off', 22) %></span><span class="ctl-label">Camera</span></button>
-      <button class="ctl" type="button" data-ctl="share" title="Share your screen"><%- h.icon('screen', 22) %><span class="ctl-label">Share</span></button>
-      <button class="ctl" type="button" data-ctl="hand" title="Raise hand"><%- h.icon('hand', 22) %><span class="ctl-label">Raise</span></button>
-      <div class="react-wrap">
-        <button class="ctl" type="button" data-ctl="react" title="React"><%- h.icon('smile', 22) %><span class="ctl-label">React</span></button>
-        <div class="react-pop" data-react-pop hidden><% ['👍', '👏', '❤️', '😂', '🎉', '😮'].forEach(function (e) { %><button type="button" data-emoji="<%= e %>"><%= e %></button><% }) %></div>
+    <div class="lobby-alert" data-lobby-alert hidden></div>
+    <footer class="bar">
+      <div class="bar-left"><span data-clock></span><span class="bar-sep">|</span><span class="bar-title"><%= meeting.title %></span></div>
+      <div class="bar-center">
+        <button class="rbtn" type="button" data-ctl="mic" title="Turn off microphone (Ctrl + D)"><%- ctl('mic', 'mic-off') %></button>
+        <button class="rbtn" type="button" data-ctl="cam" title="Turn off camera (Ctrl + E)"><%- ctl('video', 'video-off') %></button>
+        <button class="rbtn in-call" type="button" data-ctl="hand" title="Raise hand"><%- h.icon('hand', 22) %></button>
+        <div class="pop-wrap in-call">
+          <button class="rbtn" type="button" data-ctl="react" title="Send a reaction"><%- h.icon('smile', 22) %></button>
+          <div class="react-pop" data-react-pop hidden><% ['💖', '👍', '🎉', '👏', '😂', '😮', '😢', '🤔'].forEach(function (e) { %><button type="button" data-emoji="<%= e %>"><%= e %></button><% }) %></div>
+        </div>
+        <button class="rbtn in-call" type="button" data-ctl="share" title="Present now"><%- h.icon('screen', 22) %></button>
+        <div class="pop-wrap">
+          <button class="rbtn" type="button" data-ctl="more" title="More options" aria-haspopup="menu"><%- h.icon('more', 22) %></button>
+          <div class="menu" data-more-menu role="menu" hidden>
+            <button type="button" role="menuitem" data-open="effects"><%- h.icon('effects', 18) %> Backgrounds and effects</button>
+            <button type="button" role="menuitem" data-open="settings"><%- h.icon('settings', 18) %> Settings</button>
+            <button type="button" role="menuitem" class="in-call show-sm" data-ctl="hand"><%- h.icon('hand', 18) %> Raise hand</button>
+            <button type="button" role="menuitem" class="in-call show-sm" data-panel-btn="people"><%- h.icon('clients', 18) %> People</button>
+            <button type="button" role="menuitem" class="in-call show-sm" data-panel-btn="chat"><%- h.icon('chat', 18) %> Chat</button>
+            <% if (host) { %><button type="button" role="menuitem" class="in-call danger" data-end><%- h.icon('phone-off', 18) %> End meeting for everyone</button><% } %>
+          </div>
+        </div>
+        <button class="rbtn rbtn-leave" type="button" data-leave title="Leave call"><%- h.icon('phone-off', 22) %></button>
       </div>
-      <button class="ctl" type="button" data-ctl="chat" title="Chat"><%- h.icon('chat', 22) %><span class="ctl-label">Chat</span><span class="ctl-badge" data-chat-badge hidden></span></button>
-      <button class="ctl ctl-leave" type="button" data-leave title="Leave"><%- h.icon('phone-off', 22) %><span class="ctl-label">Leave</span></button>
+      <div class="bar-right in-call">
+        <button class="rbtn rbtn-plain" type="button" data-panel-btn="people" title="People"><%- h.icon('clients', 22) %><span class="bar-count" data-count>1</span></button>
+        <button class="rbtn rbtn-plain" type="button" data-panel-btn="chat" title="Chat with everyone"><%- h.icon('chat', 22) %><span class="dot" data-chat-badge hidden></span></button>
+      </div>
     </footer>
   </section>
 
-  <section class="room-center" data-stage="ended" hidden>
-    <h2 data-ended-title>You left the meeting</h2>
-    <p class="muted" data-ended-msg></p>
-    <div class="row" style="justify-content:center">
-      <a class="btn" href="/meet/<%= meeting.room_token %>" data-rejoin>Rejoin</a>
-      <% if (room.back) { %><a class="btn btn-ghost" href="<%= room.back %>">Back to Haptags Hub</a><% } %>
+  <!-- ===== Left / ended ===== -->
+  <section class="ended" data-stage="ended" hidden>
+    <h1 data-ended-title>You left the meeting</h1>
+    <p data-ended-msg></p>
+    <div class="ended-actions">
+      <a class="pill pill-outline" href="/meet/<%= meeting.room_token %>">Rejoin</a>
+      <% if (room.back) { %><a class="pill pill-primary" href="<%= room.back %>">Return to Haptags Hub</a><% } %>
     </div>
   </section>
 </div>
 
+<dialog class="fx-dialog" data-dialog="effects" aria-labelledby="fx-title">
+  <header><h2 id="fx-title">Backgrounds and effects</h2><button class="rbtn rbtn-plain dark" type="button" data-close aria-label="Close"><%- h.icon('x', 22) %></button></header>
+  <div class="fx-body">
+    <div class="fx-preview">
+      <video data-fx-preview autoplay muted playsinline class="mirror"></video>
+      <div class="fx-msg" data-fx-msg>Your camera is turned off. Selecting an effect will turn it on.</div>
+    </div>
+    <div class="fx-side">
+      <div class="fx-group">
+        <h3>Blur and personal</h3>
+        <div class="fx-grid">
+          <button type="button" class="fx-opt fx-icon" data-fx="none" title="Turn off visual effects"><%- h.icon('ban', 24) %></button>
+          <button type="button" class="fx-opt fx-icon" data-fx="blur-light" title="Slightly blur your background"><%- h.icon('blur', 24) %></button>
+          <button type="button" class="fx-opt fx-icon" data-fx="blur" title="Blur your background"><%- h.icon('blur', 24) %><span class="fx-strong"></span></button>
+          <label class="fx-opt fx-icon" title="Upload a background image"><%- h.icon('image', 24) %><input type="file" accept="image/png,image/jpeg,image/webp" data-fx-upload hidden></label>
+        </div>
+      </div>
+      <div class="fx-group">
+        <h3>Backgrounds</h3>
+        <div class="fx-grid" data-fx-backgrounds></div>
+      </div>
+      <p class="fx-note" data-fx-note>Effects run on your device. Nothing is uploaded.</p>
+    </div>
+  </div>
+</dialog>
+
+<dialog class="set-dialog" data-dialog="settings" aria-labelledby="set-title">
+  <header><h2 id="set-title">Settings</h2><button class="rbtn rbtn-plain dark" type="button" data-close aria-label="Close"><%- h.icon('x', 22) %></button></header>
+  <div class="set-body">
+    <label>Microphone<select data-device="audioinput"></select></label>
+    <label data-speaker-wrap>Speakers<select data-device="audiooutput"></select></label>
+    <label>Camera<select data-device="videoinput"></select></label>
+  </div>
+</dialog>
+
 <template id="tile-tpl">
   <div class="tile">
     <video autoplay playsinline></video>
-    <div class="tile-avatar"><span class="avatar avatar-xl"></span></div>
-    <div class="tile-name"><span class="tile-mic"><%- h.icon('mic-off', 14) %></span><span class="tile-hand" title="Hand raised">✋</span><span data-name></span></div>
+    <div class="tile-avatar"><span class="tile-initial"></span></div>
+    <div class="tile-top"><span class="tile-hand" title="Hand raised">✋</span><span class="tile-mic" title="Muted"><%- h.icon('mic-off', 15) %></span><span class="tile-eq" aria-hidden="true"><i></i><i></i><i></i></span></div>
+    <div class="tile-name" data-name></div>
     <div class="tile-status" hidden></div>
+    <button class="tile-pin" type="button" title="Pin" aria-label="Pin"><%- h.icon('pin', 18) %></button>
     <div class="tile-react" aria-hidden="true"></div>
   </div>
 </template>

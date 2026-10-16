@@ -21,10 +21,13 @@ app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", 'https://checkout.razorpay.com', 'https://*.razorpay.com'],
+      // 'wasm-unsafe-eval' lets the meeting room run its background-blur model (WebAssembly).
+      scriptSrc: ["'self'", "'wasm-unsafe-eval'", 'https://checkout.razorpay.com', 'https://*.razorpay.com'],
+      workerSrc: ["'self'"],
+      mediaSrc: ["'self'", 'blob:'],
       styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
       fontSrc: ["'self'", 'https://fonts.gstatic.com', 'data:'],
-      imgSrc: ["'self'", 'data:', 'https:'],
+      imgSrc: ["'self'", 'data:', 'blob:', 'https:'],
       connectSrc: ["'self'", 'https://*.razorpay.com'],
       frameSrc: ['https://*.razorpay.com'],
       formAction: ["'self'"],
@@ -36,6 +39,10 @@ app.use(helmet({
 }));
 
 app.use('/static', express.static(path.join(__dirname, '..', 'public'), { maxAge: config.isProd ? '7d' : 0 }));
+// MediaPipe's segmentation runtime for meeting background effects, served from the pinned npm package.
+app.use('/static/vendor/mediapipe', express.static(path.join(__dirname, '..', 'node_modules', '@mediapipe', 'tasks-vision'), {
+  maxAge: config.isProd ? '30d' : 0, index: false,
+}));
 app.get('/favicon.ico', (req, res) => res.redirect(301, '/static/img/haptags-mark.png'));
 app.get('/healthz', async (req, res) => {
   try {
