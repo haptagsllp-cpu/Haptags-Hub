@@ -102,5 +102,12 @@
       <div class="card-body"><%- include('../../partials/timeline', { activities: activities }) %></div>
     </section>
     <% } %>
+    <% if (isAdmin) { %>
+    <form method="post" action="/admin/education/students/<%= st.id %>/delete" class="card card-pad" data-confirm="Delete <%= st.name %><%= invoices.length ? ' and their ' + invoices.length + ' invoice' + (invoices.length === 1 ? '' : 's') + (payments.length ? ' and ' + payments.length + ' payment' + (payments.length === 1 ? '' : 's') : '') : '' %>? This can’t be undone.">
+      <%- include('../../partials/csrf') %>
+      <p class="small muted mt-0">Created by mistake or a duplicate? Deleting removes this student<%= invoices.length ? ' and their invoices and payments' : '' %> permanently.</p>
+      <button class="btn btn-danger btn-sm" type="submit"><%- h.icon('trash', 14) %> Delete student</button>
+    </form>
+    <% } %>
   </div>
 </div>

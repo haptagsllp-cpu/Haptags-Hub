@@ -507,6 +507,15 @@ test('education: programs, enrolment with instalments, student invoices and thei
   assert.equal(overview.status, 200);
   assert.match(overview.text, /Web dev internship/);
   assert.match((await owner.get('/admin/education/students.csv')).text, /Divya N/);
+
+  // A duplicate created by mistake can be deleted (by owners/admins), invoices and all.
+  res = await owner.post('/admin/education/students', { name: 'Dup Student', phone: '9000000000', fee: '999' });
+  const dupId = Number(res.location.split('/').pop());
+  await owner.get(`/admin/education/students/${dupId}`);
+  res = await owner.post(`/admin/education/students/${dupId}/delete`, {});
+  assert.equal(res.location, '/admin/education/students');
+  assert.equal(await db('clients').where({ id: dupId }).first(), undefined);
+  assert.equal(Number((await db('invoices').where({ client_id: dupId }).count({ n: '*' }).first()).n), 0);
 });
 
 test('finance: bank statement import, dedupe, categories, matching and the CEO view', async () => {

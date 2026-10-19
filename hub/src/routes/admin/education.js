@@ -8,8 +8,9 @@ const { getSettings } = require('../../lib/settings');
 const { columnChart } = require('../../lib/charts');
 const { toPaise } = require('../../lib/money');
 const {
-  invoiceUrl, createInvoice, issueInvoice, defaultTaxMode, sendInvoiceEmail, cleanNumber, numberTaken, previewNumber,
+  invoiceUrl, createInvoice, issueInvoice, defaultTaxMode, sendInvoiceEmail, cleanNumber, numberTaken, previewNumber, deleteInvoices,
 } = require('../../lib/billing');
+const { requireAdmin } = require('../../lib/auth');
 const { getActivities, logActivity } = require('../../lib/activity');
 const { periodFrom, monthsBetween, monthLabel, PRESETS } = require('../../lib/period');
 const { nowSql, todayIST, addDays, addMonths, str, int, isEmail, isDate } = require('../../lib/util');
@@ -245,6 +246,20 @@ router.post('/students/:id', loadStudent, async (req, res) => {
 });
 
 // Another fee for an existing student (next module, certificate, extension…).
+// Remove a student entirely (e.g. a duplicate created by mistake), with their invoices and payments.
+router.post('/students/:id/delete', requireAdmin, loadStudent, async (req, res) => {
+  const st = req.student;
+  const r = await db.transaction(async (trx) => {
+    const result = await deleteInvoices(trx, await trx('invoices').where({ client_id: st.id }).pluck('id'));
+    await trx('activities').where({ entity_type: 'client', entity_id: st.id }).del();
+    await trx('clients').where({ id: st.id }).del();
+    return result;
+  });
+  console.log(`[education] ${req.user.email} deleted student #${st.id} ${st.name} (${r.invoices} invoices, ${r.payments} payments)`);
+  req.flash('success', `${st.name} deleted${r.invoices ? `, with ${r.invoices} invoice${r.invoices === 1 ? '' : 's'}` : ''}.`);
+  res.redirect('/admin/education/students');
+});
+
 router.post('/students/:id/invoice', loadStudent, async (req, res) => {
   const st = req.student;
   const s = await getSettings();
