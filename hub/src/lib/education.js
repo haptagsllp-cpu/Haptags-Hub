@@ -37,7 +37,7 @@ function preTaxRate(amount, { taxMode, gstRate, inclusive }) {
 async function enroll(student, plan, userId) {
   const s = await getSettings();
   const now = nowSql();
-  const today = todayIST();
+  const today = plan.issueDate || todayIST();
   const program = plan.programId ? await db('programs').where({ id: plan.programId }).first() : null;
   const programName = program ? program.name : (plan.description || 'Program fee');
   const result = await db.transaction(async (trx) => {
@@ -49,12 +49,13 @@ async function enroll(student, plan, userId) {
     const gstRate = Number(s.edu_gst_rate) || 0;
     const inclusive = program ? Boolean(program.fee_includes_gst) : plan.inclusive !== false;
     const parts = split(plan.fee, plan.installments);
-    const firstDue = plan.firstDue || addDays(today, Number(s.edu_due_days) || 7);
+    const firstDue = plan.firstDue && plan.firstDue >= today ? plan.firstDue : addDays(today, Number(s.edu_due_days) || 7);
     const invoiceIds = [];
     for (let i = 0; i < parts.length; i += 1) {
       const label = parts.length > 1 ? ` (instalment ${i + 1} of ${parts.length})` : '';
       const id = await createInvoice(trx, {
         client_id: clientId,
+        number: i === 0 ? plan.number || null : null, // a typed number goes on the first instalment
         title: `${programName}${plan.batch ? ` · ${plan.batch}` : ''}${label}`,
         issue_date: today,
         due_date: i === 0 ? firstDue : addMonths(firstDue, i),

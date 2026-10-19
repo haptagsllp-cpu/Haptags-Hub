@@ -62,6 +62,8 @@
         <div class="field full"><label for="inv-desc">Description</label><input id="inv-desc" name="description" type="text" placeholder="e.g. Internship extension – 1 month"></div>
         <div class="field"><label for="inv-amt">Amount (₹)</label><input id="inv-amt" name="amount" type="number" min="1" step="1"></div>
         <div class="field"><label for="inv-due">Due date</label><input id="inv-due" name="due_date" type="date"></div>
+        <div class="field"><label for="inv-number">Invoice number</label><input id="inv-number" name="number" type="text" maxlength="30" class="mono" placeholder="Automatic: <%= nextNumber %>"></div>
+        <div class="field"><label for="inv-date">Invoice date</label><input id="inv-date" name="issue_date" type="date"></div>
       </div>
       <div class="row"><label class="check small"><input type="checkbox" name="send_email" value="1" <%= st.email ? 'checked' : 'disabled' %>> Email it to the student</label><span style="flex:1"></span><button class="btn" type="submit">Create invoice</button></div>
     </form>

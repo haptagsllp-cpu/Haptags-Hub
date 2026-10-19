@@ -91,6 +91,16 @@
     <% if (doc.status === 'draft') { %>
       <form method="post" action="/admin/invoices/<%= doc.id %>/delete" data-confirm="Delete this draft?"><%- include('../../partials/csrf') %><button class="btn btn-danger btn-sm" type="submit"><%- h.icon('trash', 14) %> Delete draft</button></form>
     <% } else if (doc.status !== 'void') { %>
+      <% if (isAdmin) { %>
+      <details>
+        <summary class="small muted" style="cursor:pointer">Change invoice number…</summary>
+        <form method="post" action="/admin/invoices/<%= doc.id %>/number" class="mt-8 row" data-confirm="Change the number of this issued invoice? Anyone holding the old copy will see a different number.">
+          <%- include('../../partials/csrf') %>
+          <input type="text" name="number" value="<%= doc.number || '' %>" maxlength="30" class="mono" aria-label="Invoice number" style="max-width:220px">
+          <button class="btn btn-ghost btn-sm" type="submit">Save number</button>
+        </form>
+      </details>
+      <% } %>
       <details>
         <summary class="small muted" style="cursor:pointer">Void this invoice…</summary>
         <form method="post" action="/admin/invoices/<%= doc.id %>/void" class="mt-8" data-confirm="Void <%= doc.number %>? The number stays reserved and it can’t be undone.">

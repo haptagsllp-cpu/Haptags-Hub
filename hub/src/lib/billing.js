@@ -19,11 +19,49 @@ async function nextSequence(trx, name) {
   return row.value;
 }
 
-async function nextNumber(trx, prefix, dateYmd) {
+const formatNumber = (prefix, fy, seq) => `${prefix}/${fy}/${String(seq).padStart(4, '0')}`;
+
+/**
+ * Next automatic number in a series. Numbers typed in by hand can sit anywhere in the series,
+ * so any that are already taken are skipped rather than duplicated.
+ */
+async function nextNumber(trx, prefix, dateYmd, table = 'invoices') {
   const fy = financialYear(dateYmd);
-  const seq = await nextSequence(trx, `${prefix}:${fy}`);
-  return `${prefix}/${fy}/${String(seq).padStart(4, '0')}`;
+  for (let i = 0; i < 1000; i += 1) {
+    const number = formatNumber(prefix, fy, await nextSequence(trx, `${prefix}:${fy}`));
+    if (!(await trx(table).where({ number }).first())) return number;
+  }
+  throw new Error('Could not find a free number in this series.');
 }
+
+/** What the next automatic number will be, without using it up. */
+async function previewNumber(prefix, dateYmd, trx = db) {
+  const fy = financialYear(dateYmd);
+  const row = await trx('sequences').where({ name: `${prefix}:${fy}` }).first();
+  let seq = (row ? Number(row.value) : 0) + 1;
+  while (await trx('invoices').where({ number: formatNumber(prefix, fy, seq) }).first()) seq += 1;
+  return formatNumber(prefix, fy, seq);
+}
+
+/** Sets where a series continues from this financial year (e.g. after last year's paper invoices). */
+async function setNextSequence(prefix, dateYmd, next) {
+  const name = `${prefix}:${financialYear(dateYmd)}`;
+  const value = Math.max(0, Math.floor(next) - 1);
+  const updated = await db('sequences').where({ name }).update({ value });
+  if (!updated) await db('sequences').insert({ name, value });
+}
+
+/** A typed-in invoice number: letters, digits and / - _ . only. Returns null if it isn't usable. */
+function cleanNumber(value) {
+  const v = String(value || '').trim().replace(/\s+/g, '');
+  return /^[A-Za-z0-9][A-Za-z0-9/_.-]{0,29}$/.test(v) ? v : null;
+}
+
+async function numberTaken(number, exceptId = 0, trx = db) {
+  return Boolean(await trx('invoices').where({ number }).whereNot('id', exceptId || 0).first());
+}
+
+const prefixFor = (segment, s) => (segment === 'student' ? s.edu_invoice_prefix : s.invoice_prefix);
 
 /**
  * GST treatment: no GSTIN on our side means we can't charge GST; same state as us is
@@ -109,7 +147,7 @@ async function issueInvoice(trx, invoiceId) {
   if (!inv || inv.status === 'void') return inv;
   const s = await getSettings();
   const patch = { updated_at: nowSql() };
-  if (!inv.number) patch.number = await nextNumber(trx, inv.segment === 'student' ? s.edu_invoice_prefix : s.invoice_prefix, inv.issue_date);
+  if (!inv.number) patch.number = await nextNumber(trx, prefixFor(inv.segment, s), inv.issue_date);
   if (inv.status === 'draft') patch.status = 'sent';
   await trx('invoices').where({ id: invoiceId }).update(patch);
   return refreshInvoice(trx, invoiceId);
@@ -121,6 +159,7 @@ async function createInvoice(trx, data, items) {
   const [id] = await trx('invoices').insert({
     client_id: data.client_id,
     segment: client && client.segment === 'student' ? 'student' : 'business',
+    number: data.number || null, // typed in by hand; otherwise assigned when issued
     project_id: data.project_id || null,
     quote_id: data.quote_id || null,
     retainer_id: data.retainer_id || null,
@@ -315,6 +354,6 @@ async function sendReceipt(paymentId) {
 }
 
 module.exports = {
-  nextNumber, defaultTaxMode, itemsFromForm, getItems, replaceItems, deriveInvoiceStatus, refreshInvoice,
+  nextNumber, previewNumber, setNextSequence, cleanNumber, numberTaken, prefixFor, defaultTaxMode, itemsFromForm, getItems, replaceItems, deriveInvoiceStatus, refreshInvoice,
   issueInvoice, createInvoice, invoiceFromQuote, invoiceFromRetainer, sendInvoiceEmail, recordPayment, invoiceUrl,
 };

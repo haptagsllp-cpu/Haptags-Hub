@@ -20,7 +20,13 @@
         <input id="title" name="title" type="text" value="<%= doc.title || '' %>" placeholder="<%= kind === 'retainer' ? 'SEO & social media — monthly' : 'e.g. Website redesign — Phase 1' %>" <%- errors.title ? 'aria-invalid="true"' : '' %>>
         <% if (errors.title) { %><div class="error"><%= errors.title %></div><% } %>
       </div>
-      <% if (kind === 'invoice') { %>
+      <% if (kind === 'invoice') { const hints = locals.numberHints || {}; %>
+        <div class="field">
+          <label for="number">Invoice number</label>
+          <input id="number" name="number" type="text" maxlength="30" class="mono" value="<%= doc.number || '' %>" placeholder="Automatic: <%= hints.business || '' %>" <%- errors.number ? 'aria-invalid="true"' : '' %>>
+          <% if (errors.number) { %><div class="error"><%= errors.number %></div><% } %>
+          <div class="hint">Type your own number (e.g. for invoices from last year), or leave blank for the next one in the series: <%= hints.business %><%= hints.student ? ' (students: ' + hints.student + ')' : '' %>.</div>
+        </div>
         <div class="field"><label for="issue_date">Invoice date</label><input id="issue_date" name="issue_date" type="date" value="<%= doc.issue_date || '' %>"></div>
         <div class="field"><label for="due_date">Due date</label><input id="due_date" name="due_date" type="date" value="<%= doc.due_date || '' %>" <%- errors.due_date ? 'aria-invalid="true"' : '' %>><% if (errors.due_date) { %><div class="error"><%= errors.due_date %></div><% } %></div>
         <% if (locals.projects) { %>

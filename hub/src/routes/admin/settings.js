@@ -9,7 +9,8 @@ const {
 } = require('../../lib/auth');
 const { mailEnabled, sendMail } = require('../../lib/mailer');
 const { runAutomations } = require('../../lib/automation');
-const { nowSql, str, isEmail, randomToken } = require('../../lib/util');
+const { nowSql, str, isEmail, randomToken, int, todayIST, financialYear } = require('../../lib/util');
+const { previewNumber, setNextSequence } = require('../../lib/billing');
 const { idParam } = require('./_helpers');
 
 const router = express.Router();
@@ -25,8 +26,17 @@ const CHECKBOXES = ['auto_reminders', 'lead_auto_reply'];
 
 router.get('/settings', requireAdmin, async (req, res) => {
   const tab = GROUPS[req.query.tab] || req.query.tab === 'integrations' ? req.query.tab : 'company';
+  const s = await getSettings();
+  const today = todayIST();
   res.render('admin/settings/index', {
-    title: 'Settings', tab, s: await getSettings(),
+    title: 'Settings', tab, s,
+    numbering: {
+      fy: financialYear(today),
+      business: await previewNumber(s.invoice_prefix, today),
+      student: await previewNumber(s.edu_invoice_prefix, today),
+      invoiceCount: Number((await db('invoices').count({ n: '*' }).first()).n),
+      paymentCount: Number((await db('payments').count({ n: '*' }).first()).n),
+    },
     status: {
       mail: mailEnabled, razorpay: config.razorpay.enabled, webhook: Boolean(config.razorpay.webhookSecret),
       db: config.db.client, notifyEmail: config.notifyEmail, mailFrom: config.mailFrom,
@@ -51,6 +61,71 @@ router.post('/settings', requireAdmin, async (req, res) => {
   await setSettings(values);
   req.flash('success', 'Settings saved.');
   res.redirect(`/admin/settings?tab=${group}`);
+});
+
+// Where automatic numbering continues this financial year (e.g. after last year's invoices).
+router.post('/settings/numbering', requireAdmin, async (req, res) => {
+  const s = await getSettings();
+  const today = todayIST();
+  const set = [];
+  for (const [field, prefix] of [['business_next', s.invoice_prefix], ['student_next', s.edu_invoice_prefix]]) {
+    const n = int(req.body[field], 0);
+    if (n >= 1 && n <= 99999) {
+      await setNextSequence(prefix, today, n);
+      set.push(await previewNumber(prefix, today));
+    }
+  }
+  req.flash('success', set.length ? `Next automatic numbers: ${set.join(' and ')}.` : 'Nothing changed.');
+  res.redirect('/admin/settings?tab=billing');
+});
+
+// Everything invoiced so far, as a CSV, so nothing is lost before a reset.
+router.get('/settings/invoices-backup.csv', requireAdmin, async (req, res) => {
+  const rows = await db('invoices as i').join('clients as c', 'c.id', 'i.client_id').orderBy('i.id')
+    .select('i.*', 'c.name as client_name');
+  const pays = await db('payments').orderBy('id');
+  const cell = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  const money = (p) => (Number(p) / 100).toFixed(2);
+  const lines = [['Invoice', 'Type', 'Client / student', 'Title', 'Date', 'Due', 'Status', 'Taxable', 'GST', 'Total', 'Paid', 'Payments'].map(cell).join(',')];
+  for (const r of rows) {
+    const p = pays.filter((x) => x.invoice_id === r.id)
+      .map((x) => `${x.paid_on} ${money(x.amount)} ${x.method}${x.reference ? ` ${x.reference}` : ''} (${x.status})`).join('; ');
+    lines.push([r.number || `Draft #${r.id}`, r.segment, r.client_name, r.title, r.issue_date, r.due_date, r.status,
+      money(Number(r.subtotal) - Number(r.discount)), money(Number(r.cgst) + Number(r.sgst) + Number(r.igst)), money(r.total), money(r.amount_paid), p]
+      .map(cell).join(','));
+  }
+  res.set({ 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': `attachment; filename="haptags-invoices-backup-${todayIST()}.csv"` });
+  res.send(`\uFEFF${lines.join('\r\n')}`);
+});
+
+// Start over: deletes every invoice and the payments recorded against them. Owner only, typed confirmation.
+router.post('/settings/delete-invoices', requireAdmin, async (req, res) => {
+  if (req.user.role !== 'owner') {
+    req.flash('error', 'Only the owner can delete all invoices.');
+    return res.redirect('/admin/settings?tab=billing');
+  }
+  if (String(req.body.confirm || '').trim().toUpperCase() !== 'DELETE ALL INVOICES') {
+    req.flash('error', 'Type DELETE ALL INVOICES to confirm. Nothing was deleted.');
+    return res.redirect('/admin/settings?tab=billing');
+  }
+  const s = await getSettings();
+  const counts = await db.transaction(async (trx) => {
+    const invoices = Number((await trx('invoices').count({ n: '*' }).first()).n);
+    const payments = Number((await trx('payments').count({ n: '*' }).first()).n);
+    await trx('bank_txns').whereNotNull('payment_id').update({ payment_id: null });
+    await trx('razorpay_orders').del();
+    await trx('payments').del();
+    await trx('line_items').where({ doc_type: 'invoice' }).del();
+    await trx('activities').where({ entity_type: 'invoice' }).del();
+    await trx('quotes').whereNotNull('invoice_id').update({ invoice_id: null, status: 'accepted', updated_at: nowSql() });
+    await trx('invoices').del();
+    // Automatic numbering starts again at 0001 in each series.
+    for (const prefix of [s.invoice_prefix, s.edu_invoice_prefix]) await trx('sequences').where('name', 'like', `${prefix}:%`).del();
+    return { invoices, payments };
+  });
+  console.log(`[settings] ${req.user.email} deleted all invoices (${counts.invoices}) and payments (${counts.payments})`);
+  req.flash('success', `Deleted ${counts.invoices} invoice${counts.invoices === 1 ? '' : 's'} and ${counts.payments} payment${counts.payments === 1 ? '' : 's'}. Numbering starts fresh; set where it continues below.`);
+  res.redirect('/admin/settings?tab=billing');
 });
 
 router.post('/settings/regenerate-key', requireAdmin, async (req, res) => {

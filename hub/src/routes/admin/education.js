@@ -7,7 +7,9 @@ const E = require('../../lib/education');
 const { getSettings } = require('../../lib/settings');
 const { columnChart } = require('../../lib/charts');
 const { toPaise } = require('../../lib/money');
-const { invoiceUrl, createInvoice, issueInvoice, defaultTaxMode, sendInvoiceEmail } = require('../../lib/billing');
+const {
+  invoiceUrl, createInvoice, issueInvoice, defaultTaxMode, sendInvoiceEmail, cleanNumber, numberTaken, previewNumber,
+} = require('../../lib/billing');
 const { getActivities, logActivity } = require('../../lib/activity');
 const { periodFrom, monthsBetween, monthLabel, PRESETS } = require('../../lib/period');
 const { nowSql, todayIST, addDays, addMonths, str, int, isEmail, isDate } = require('../../lib/util');
@@ -130,7 +132,20 @@ function readStudent(body, s) {
 }
 
 async function formLocals(extra) {
-  return { programs: await programs(), methods: C.PAYMENT_METHODS, states: C.STATES, settings: await getSettings(), ...extra };
+  const s = await getSettings();
+  return {
+    programs: await programs(), methods: C.PAYMENT_METHODS, states: C.STATES, settings: s,
+    nextNumber: await previewNumber(s.edu_invoice_prefix, todayIST()), ...extra,
+  };
+}
+
+/** Optional typed-in invoice number: { number } or { error }. */
+async function readNumber(value) {
+  if (!String(value || '').trim()) return { number: null };
+  const number = cleanNumber(value);
+  if (!number) return { error: 'Use letters, numbers and / - _ . only, e.g. HTE/25-26/0040.' };
+  if (await numberTaken(number)) return { error: `${number} is already used by another invoice.` };
+  return { number };
 }
 
 router.get('/students/new', async (req, res) => {
@@ -153,6 +168,8 @@ router.post('/students', async (req, res) => {
   const installments = Math.min(12, Math.max(1, int(req.body.installments, 1)));
   const paidNow = toPaise(req.body.paid_now);
   if (fee <= 0) errors.fee = 'Enter the fee.';
+  const num = await readNumber(req.body.number);
+  if (num.error) errors.number = num.error;
   if (paidNow > fee - discount) errors.paid_now = 'That’s more than the fee.';
   if (Object.keys(errors).length) {
     return res.status(422).render('admin/education/student-form', { title: 'New student', tab: 'students', ...(await formLocals({ form: req.body, errors })) });
@@ -163,12 +180,14 @@ router.post('/students', async (req, res) => {
     batch: student.batch,
     fee: fee - discount,
     installments,
+    number: num.number,
+    issueDate: isDate(req.body.issue_date) ? req.body.issue_date : null,
     firstDue: isDate(req.body.first_due) ? req.body.first_due : null,
     paidNow: paidNow > 0 ? {
       amount: paidNow,
       method: C.PAYMENT_METHODS.some((m) => m[0] === req.body.method) ? req.body.method : 'upi',
       reference: str(req.body.reference, 190),
-      paid_on: todayIST(),
+      paid_on: isDate(req.body.paid_on) ? req.body.paid_on : todayIST(),
       notes: discount ? `Discount/scholarship given: ₹${discount / 100}` : null,
     } : null,
     sendEmail: Boolean(req.body.send_email),
@@ -200,6 +219,7 @@ router.get('/students/:id', loadStudent, async (req, res) => {
     title: st.name, tab: 'students', st, invoices: invoices.map((i) => ({ ...i, link: invoiceUrl(i) })), payments, activities,
     totals: { ...totals, due: totals.billed - totals.paid }, next: next ? { ...next, link: invoiceUrl(next) } : null,
     settings: await getSettings(), programs: await programs(),
+    nextNumber: await previewNumber((await getSettings()).edu_invoice_prefix, todayIST()),
   });
 });
 
@@ -234,10 +254,15 @@ router.post('/students/:id/invoice', loadStudent, async (req, res) => {
     req.flash('error', 'Add a description and an amount.');
     return res.redirect(`/admin/education/students/${st.id}`);
   }
+  const num = await readNumber(req.body.number);
+  if (num.error) {
+    req.flash('error', num.error);
+    return res.redirect(`/admin/education/students/${st.id}`);
+  }
   const taxMode = defaultTaxMode(st, s);
   const id = await db.transaction(async (trx) => {
     const iid = await createInvoice(trx, {
-      client_id: st.id, title: description, issue_date: todayIST(),
+      client_id: st.id, number: num.number, title: description, issue_date: isDate(req.body.issue_date) ? req.body.issue_date : todayIST(),
       due_date: isDate(req.body.due_date) ? req.body.due_date : addDays(todayIST(), Number(s.edu_due_days) || 7),
       tax_mode: taxMode, gst_rate: Number(s.edu_gst_rate) || 0, place_of_supply: st.state, terms: s.edu_terms,
     }, [{ description, sac: s.edu_sac, quantity: 1, rate: E.preTaxRate(amount, { taxMode, gstRate: Number(s.edu_gst_rate), inclusive: true }) }]);

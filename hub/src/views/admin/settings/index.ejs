@@ -58,6 +58,30 @@
   </div>
   <button class="btn" type="submit">Save</button>
 </form>
+
+<form method="post" action="/admin/settings/numbering" class="card card-pad mt-16" style="max-width:900px">
+  <%- include('../../partials/csrf') %>
+  <h3>Invoice numbering (FY <%= numbering.fy %>)</h3>
+  <p class="muted small mt-0">You can type any number on an invoice yourself. When it’s left blank, the next number in the series is used, and numbers already taken are skipped. Set where the series continues, e.g. 38 if your last invoice this year was number 37.</p>
+  <div class="form-grid">
+    <div class="field"><label for="business_next">Client invoices: next number</label><input id="business_next" name="business_next" type="number" min="1" max="99999" placeholder="<%= Number(numbering.business.split('/').pop()) %>"><div class="hint">Next automatic: <span class="mono"><%= numbering.business %></span></div></div>
+    <div class="field"><label for="student_next">Student invoices: next number</label><input id="student_next" name="student_next" type="number" min="1" max="99999" placeholder="<%= Number(numbering.student.split('/').pop()) %>"><div class="hint">Next automatic: <span class="mono"><%= numbering.student %></span></div></div>
+  </div>
+  <button class="btn btn-ghost" type="submit">Save numbering</button>
+</form>
+
+<section class="card card-pad mt-16" style="max-width:900px;border-color:#f3c2cb">
+  <h3>Start invoices over</h3>
+  <p class="muted small mt-0">There are <b><%= numbering.invoiceCount %></b> invoices and <b><%= numbering.paymentCount %></b> payments in the Hub. Deleting removes all of them, client and student, and restarts automatic numbering. Clients, students, quotations and bank statements stay. This can’t be undone.</p>
+  <a class="btn btn-ghost btn-sm mb-16" href="/admin/settings/invoices-backup.csv"><%- h.icon('download', 15) %> Download a backup first (CSV)</a>
+  <% if (user.role === 'owner') { %>
+  <form method="post" action="/admin/settings/delete-invoices" class="row" data-confirm="Delete ALL invoices and payments? This can’t be undone.">
+    <%- include('../../partials/csrf') %>
+    <input type="text" name="confirm" placeholder="Type DELETE ALL INVOICES" autocomplete="off" aria-label="Type DELETE ALL INVOICES to confirm" style="max-width:280px">
+    <button class="btn btn-danger" type="submit"><%- h.icon('trash', 15) %> Delete all invoices</button>
+  </form>
+  <% } else { %><p class="small mb-0">Only the owner can do this.</p><% } %>
+</section>
 <% } else if (tab === 'payments') { %>
 <form method="post" action="/admin/settings" class="card card-pad" style="max-width:900px">
   <%- include('../../partials/csrf') %><input type="hidden" name="group" value="payments">

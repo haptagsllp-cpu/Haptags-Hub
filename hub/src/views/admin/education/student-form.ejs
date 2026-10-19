@@ -30,13 +30,16 @@
       <select id="installments" name="installments"><% [1, 2, 3, 4, 6].forEach(function (n) { %><option value="<%= n %>" <%= h.selected(form.installments, n) %>><%= n === 1 ? 'One payment' : n + ' monthly instalments' %></option><% }) %></select>
     </div>
     <div class="field"><label for="first_due">First payment due</label><input id="first_due" name="first_due" type="date" value="<%= form.first_due || '' %>"></div>
+    <div class="field"><label for="issue_date">Invoice date</label><input id="issue_date" name="issue_date" type="date" value="<%= form.issue_date || '' %>"><div class="hint">Leave blank for today. Set an earlier date to record last year’s students.</div></div>
+    <div class="field"><label for="number">Invoice number</label><input id="number" name="number" type="text" maxlength="30" class="mono" value="<%= form.number || '' %>" placeholder="Automatic: <%= nextNumber %>" <%- errors.number ? 'aria-invalid="true"' : '' %>><% if (errors.number) { %><div class="error"><%= errors.number %></div><% } %><div class="hint">Type your own, or leave blank for <%= nextNumber %>. With instalments, it goes on the first one.</div></div>
   </div>
 
   <h3 class="mt-16">Payment taken now <span class="muted small">(optional)</span></h3>
   <div class="form-grid">
     <div class="field"><label for="paid_now">Amount received (₹)</label><input id="paid_now" name="paid_now" type="number" min="0" step="1" value="<%= form.paid_now || '' %>" <%- errors.paid_now ? 'aria-invalid="true"' : '' %>><% if (errors.paid_now) { %><div class="error"><%= errors.paid_now %></div><% } %></div>
     <div class="field"><label for="method">Method</label><select id="method" name="method"><% methods.forEach(function (m) { %><option value="<%= m[0] %>" <%= h.selected(form.method, m[0]) %>><%= m[1] %></option><% }) %></select></div>
-    <div class="field full"><label for="reference">UTR / reference</label><input id="reference" name="reference" type="text" value="<%= form.reference || '' %>" placeholder="UPI transaction ID or receipt number"></div>
+    <div class="field"><label for="paid_on">Received on</label><input id="paid_on" name="paid_on" type="date" value="<%= form.paid_on || '' %>"><div class="hint">Leave blank for today.</div></div>
+    <div class="field"><label for="reference">UTR / reference</label><input id="reference" name="reference" type="text" value="<%= form.reference || '' %>" placeholder="UPI transaction ID or receipt number"></div>
     <div class="field full"><label class="check"><input type="checkbox" name="send_email" value="1" <%= h.checked(form.send_email) %>> Email the invoice to the student</label></div>
   </div>
   <p class="muted small" data-enrol-summary></p>

@@ -7,7 +7,9 @@ const { getSettings } = require('../../lib/settings');
 const { computeTotals, toPaise } = require('../../lib/money');
 const {
   createInvoice, replaceItems, getItems, defaultTaxMode, issueInvoice, sendInvoiceEmail, recordPayment, invoiceUrl,
+  previewNumber, cleanNumber, numberTaken,
 } = require('../../lib/billing');
+const { requireAdmin } = require('../../lib/auth');
 const { logActivity, getActivities } = require('../../lib/activity');
 const { nowSql, todayIST, addDays, int, str, isDate } = require('../../lib/util');
 const { paginate, clientOptions, idParam } = require('./_helpers');
@@ -15,6 +17,25 @@ const { parseDocForm, formState } = require('./_docs');
 const { upiFor } = require('../../lib/docs');
 
 const router = express.Router();
+
+// The editor shows what the next automatic number would be in each series.
+router.use(async (req, res, next) => {
+  if (req.method === 'POST' || /\/(new|edit)$/.test(req.path)) {
+    const s = await getSettings();
+    const today = todayIST();
+    res.locals.numberHints = { business: await previewNumber(s.invoice_prefix, today), student: await previewNumber(s.edu_invoice_prefix, today) };
+  }
+  next();
+});
+
+/** The invoice number typed on the form, if any: { number } or { error }. */
+async function readNumber(body, exceptId = 0) {
+  if (!String(body.number || '').trim()) return { number: null };
+  const number = cleanNumber(body.number);
+  if (!number) return { error: 'Use letters, numbers and / - _ . only (up to 30 characters), e.g. HT/25-26/0012.' };
+  if (await numberTaken(number, exceptId)) return { error: `${number} is already used by another invoice.` };
+  return { number };
+}
 
 router.get('/', async (req, res) => {
   const status = req.query.status || '';
@@ -82,6 +103,8 @@ async function afterSave(req, res, id) {
 
 router.post('/', async (req, res) => {
   const { data, items, errors } = parseDocForm(req.body);
+  const num = await readNumber(req.body);
+  if (num.error) errors.number = num.error; else data.number = num.number;
   const s = await getSettings();
   if (!data.issue_date) data.issue_date = todayIST();
   if (!data.due_date) data.due_date = addDays(data.issue_date, Number(s.default_due_days) || 7);
@@ -92,8 +115,11 @@ router.post('/', async (req, res) => {
       projects: await db('projects').orderBy('name').select('id', 'name', 'client_id'),
     });
   }
+  // Look the client up before the transaction: SQLite has one connection, so a query outside
+  // the transaction would wait on it forever.
+  const supply = await placeOfSupply(data.client_id);
   const id = await db.transaction(async (trx) => {
-    const iid = await createInvoice(trx, { ...data, place_of_supply: await placeOfSupply(data.client_id) }, items);
+    const iid = await createInvoice(trx, { ...data, place_of_supply: supply }, items);
     await logActivity('invoice', iid, req.user.id, 'system', 'Draft created', trx);
     return iid;
   });
@@ -139,6 +165,8 @@ router.post('/:id', async (req, res, next) => {
   if (!inv) return next();
   if (inv.status !== 'draft') return res.redirect(`/admin/invoices/${inv.id}`);
   const { data, items, errors } = parseDocForm(req.body);
+  const num = await readNumber(req.body, inv.id);
+  if (num.error) errors.number = num.error;
   if (!data.issue_date) data.issue_date = inv.issue_date;
   if (!data.due_date) data.due_date = inv.due_date;
   if (data.due_date < data.issue_date) errors.due_date = 'Due date can’t be before the invoice date.';
@@ -152,9 +180,9 @@ router.post('/:id', async (req, res, next) => {
   const client = await db('clients').where({ id: data.client_id }).first();
   await db.transaction(async (trx) => {
     await trx('invoices').where({ id: inv.id }).update({
-      client_id: data.client_id, segment: client && client.segment === 'student' ? 'student' : 'business',
+      client_id: data.client_id, segment: client && client.segment === 'student' ? 'student' : 'business', number: num.number,
       project_id: data.project_id, title: data.title, issue_date: data.issue_date, due_date: data.due_date,
-      tax_mode: data.tax_mode, gst_rate: data.gst_rate, place_of_supply: await placeOfSupply(data.client_id),
+      tax_mode: data.tax_mode, gst_rate: data.gst_rate, place_of_supply: client ? client.state : null,
       subtotal: totals.subtotal, discount: totals.discount, cgst: totals.cgst, sgst: totals.sgst, igst: totals.igst, total: totals.total,
       notes: data.notes, terms: data.terms, updated_at: nowSql(),
     });
@@ -179,6 +207,21 @@ router.post('/:id/send', async (req, res, next) => {
   if (inv.status === 'void') return res.redirect(`/admin/invoices/${inv.id}`);
   const r = await sendInvoiceEmail(inv.id, req.user.id, { reminder: req.body.reminder === '1' });
   req.flash(r.ok ? 'success' : 'error', r.ok ? (req.body.reminder === '1' ? 'Reminder sent.' : 'Invoice emailed.') : r.reason);
+  res.redirect(`/admin/invoices/${inv.id}`);
+});
+
+// Correct the number on an issued invoice (owners and admins), e.g. to match last year's books.
+router.post('/:id/number', requireAdmin, async (req, res, next) => {
+  const inv = await load(req);
+  if (!inv) return next();
+  const num = await readNumber(req.body, inv.id);
+  if (num.error || !num.number) {
+    req.flash('error', num.error || 'Enter the invoice number.');
+    return res.redirect(`/admin/invoices/${inv.id}`);
+  }
+  await db('invoices').where({ id: inv.id }).update({ number: num.number, updated_at: nowSql() });
+  await logActivity('invoice', inv.id, req.user.id, 'status', `Number changed from ${inv.number || '(none)'} to ${num.number}`);
+  req.flash('success', `Invoice number set to ${num.number}.`);
   res.redirect(`/admin/invoices/${inv.id}`);
 });
 

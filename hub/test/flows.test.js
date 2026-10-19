@@ -579,3 +579,55 @@ test('finance: bank statement import, dedupe, categories, matching and the CEO v
   assert.equal((await staff.b.get('/admin/finance')).status, 403);
   assert.equal((await staff.b.get('/admin/education')).status, 200, 'the team can still enrol students');
 });
+
+// Runs last: it ends by deleting every invoice.
+test('invoice numbers: typed by hand, automatic continues past them, and an owner-only reset', async () => {
+  const owner = new Browser();
+  await owner.login('owner@test.local', 'owner-password-1');
+  const { financialYear, todayIST } = require('../src/lib/util');
+  const fy = financialYear(todayIST());
+  const [clientId] = await db('clients').insert({ name: 'Numbering Co', status: 'active', state: 'Karnataka', created_at: '2026-01-01 00:00:00', updated_at: '2026-01-01 00:00:00' });
+  const form = (extra) => ({
+    client_id: String(clientId), title: 'Old work', issue_date: todayIST(), tax_mode: 'intra', gst_rate: '18',
+    item_description: 'Website', item_sac: '998314', item_qty: '1', item_rate: '1000', action: 'issue', ...extra,
+  });
+
+  await owner.get('/admin/invoices/new');
+  let res = await owner.post('/admin/invoices', form({ number: `HT/${fy}/0037` }));
+  const id = Number(res.location.split('/').pop());
+  assert.equal((await db('invoices').where({ id }).first()).number, `HT/${fy}/0037`, 'the typed number is kept when issued');
+
+  res = await owner.post('/admin/invoices', form({ number: `HT/${fy}/0037` }));
+  assert.equal(res.status, 422, 'a number can only be used once');
+  res = await owner.post('/admin/invoices', form({ number: 'bad number!' }));
+  assert.equal(res.status, 422);
+
+  // Continue the series at 37: 37 is taken, so the next automatic number is 38.
+  await owner.get('/admin/settings?tab=billing');
+  await owner.post('/admin/settings/numbering', { business_next: '37' });
+  res = await owner.post('/admin/invoices', form({ number: '' }));
+  const auto = await db('invoices').where({ id: Number(res.location.split('/').pop()) }).first();
+  assert.equal(auto.number, `HT/${fy}/0038`);
+
+  // Fix a number on an issued invoice.
+  await owner.post(`/admin/invoices/${auto.id}/number`, { number: 'HAP-2025-112' });
+  assert.equal((await db('invoices').where({ id: auto.id }).first()).number, 'HAP-2025-112');
+
+  assert.match((await owner.get('/admin/settings/invoices-backup.csv')).text, /HAP-2025-112/);
+
+  // Reset: admins who aren't the owner can't; the owner must type the confirmation.
+  const admin = await staffUser('Ada Admin', 'ada@test.local', 'admin');
+  await admin.b.get('/admin/settings?tab=billing');
+  await admin.b.post('/admin/settings/delete-invoices', { confirm: 'DELETE ALL INVOICES' });
+  assert.ok(Number((await db('invoices').count({ n: '*' }).first()).n) > 0, 'an admin cannot wipe invoices');
+  await owner.post('/admin/settings/delete-invoices', { confirm: 'delete' });
+  assert.ok(Number((await db('invoices').count({ n: '*' }).first()).n) > 0, 'a wrong confirmation deletes nothing');
+  const studentsBefore = Number((await db('clients').where({ segment: 'student' }).count({ n: '*' }).first()).n);
+  await owner.post('/admin/settings/delete-invoices', { confirm: 'DELETE ALL INVOICES' });
+  assert.equal(Number((await db('invoices').count({ n: '*' }).first()).n), 0);
+  assert.equal(Number((await db('payments').count({ n: '*' }).first()).n), 0);
+  assert.equal(Number((await db('bank_txns').whereNotNull('payment_id').count({ n: '*' }).first()).n), 0);
+  assert.equal(Number((await db('clients').where({ segment: 'student' }).count({ n: '*' }).first()).n), studentsBefore, 'students are kept');
+  res = await owner.post('/admin/invoices', form({ number: '' }));
+  assert.equal((await db('invoices').where({ id: Number(res.location.split('/').pop()) }).first()).number, `HT/${fy}/0001`, 'numbering restarts');
+});

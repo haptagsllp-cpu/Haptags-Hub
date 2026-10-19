@@ -56,7 +56,7 @@ router.post('/', async (req, res) => {
   const s = await getSettings();
   const totals = computeTotals(items, { taxMode: data.tax_mode, gstRate: data.gst_rate, discount: data.discount });
   const id = await db.transaction(async (trx) => {
-    const number = await nextNumber(trx, s.quote_prefix, data.issue_date);
+    const number = await nextNumber(trx, s.quote_prefix, data.issue_date, 'quotes');
     const [qid] = await trx('quotes').insert({
       number,
       client_id: data.client_id,
