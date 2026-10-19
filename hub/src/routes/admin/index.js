@@ -24,6 +24,9 @@ router.use(async (req, res, next) => {
     unreadTotal(req.user.id),
     unreadFor(req.user.id).clearSelect().clearOrder().count({ n: '*' }).first(),
   ]);
+  // Partners: for "brought in by" on client pages, and the partner page link.
+  res.locals.partnersList = await db('partners').orderByRaw("CASE WHEN status = 'active' THEN 0 ELSE 1 END").orderBy('id').select('id', 'name', 'status', 'user_id');
+  res.locals.isPartner = res.locals.partnersList.some((p) => p.user_id === req.user.id);
   res.locals.counts = {
     leads: Number(newLeads.n), payments: Number(pendingPay.n), tickets: Number(openTickets.n), chat: chatUnread, announcements: Number(news.n),
   };
@@ -137,6 +140,7 @@ router.use('/meetings', require('./meetings'));
 router.use('/calendar', require('./calendar'));
 router.use('/announcements', require('./announcements'));
 router.use('/education', require('./education'));
+router.use('/partners', require('./partners'));
 router.use('/finance', requireAdmin, require('./finance'));
 router.use('/leads', require('./leads'));
 router.use('/clients', require('./clients'));

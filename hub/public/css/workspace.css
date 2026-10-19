@@ -196,3 +196,12 @@ dialog.modal::backdrop { background: rgba(2, 33, 61, .45); }
 .bulk-bar { position: sticky; top: 70px; z-index: 10; display: flex; align-items: center; gap: 12px; margin-bottom: 12px; padding: 10px 14px; border-radius: 12px; background: var(--navy); color: #fff; font-weight: 600; box-shadow: var(--shadow); }
 .bulk-bar .btn-danger { margin-left: auto; }
 .table input[type=checkbox] { width: 16px; height: 16px; accent-color: var(--blue); }
+
+/* Admin pages print as clean documents (e.g. the partner statement). */
+@media print {
+  .sidebar, .topbar, .toasts, .no-print, .flash { display: none !important; }
+  .shell { display: block; }
+  .content { padding: 0; max-width: none; }
+  .card, .stat { box-shadow: none; break-inside: avoid; }
+  .meter, .meter > span { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}

@@ -580,6 +580,46 @@ test('finance: bank statement import, dedupe, categories, matching and the CEO v
   assert.equal((await staff.b.get('/admin/education')).status, 200, 'the team can still enrol students');
 });
 
+test('partners: revenue credited to the partner who brought each client in', async () => {
+  const owner = new Browser();
+  await owner.login('owner@test.local', 'owner-password-1');
+  const partners = await db('partners').orderBy('id');
+  assert.deepEqual(partners.map((p) => p.dpin), ['11342035', '11342034', '11379873']);
+  assert.equal(partners.find((p) => p.dpin === '11379873').status, 'resigned');
+  const harsha = partners[0];
+
+  // A client with a paid invoice, credited from the client page.
+  const [cid] = await db('clients').insert({ name: 'Partner Test Client', status: 'active', state: 'Karnataka', created_at: '2026-01-01 00:00:00', updated_at: '2026-01-01 00:00:00' });
+  const { todayIST } = require('../src/lib/util');
+  await owner.get('/admin/invoices/new');
+  const res = await owner.post('/admin/invoices', {
+    client_id: String(cid), issue_date: todayIST(), tax_mode: 'none', gst_rate: '0', item_description: 'Site', item_qty: '1', item_rate: '20000', action: 'issue',
+  });
+  const invId = Number(res.location.split('/').pop());
+  await owner.post(`/admin/invoices/${invId}/payments`, { amount: '20000', method: 'upi', paid_on: todayIST() });
+  await owner.get(`/admin/clients/${cid}`);
+  await owner.post(`/admin/partners/credit/${cid}`, { partner_id: String(harsha.id) });
+  assert.equal((await db('clients').where({ id: cid }).first()).partner_id, harsha.id);
+
+  const page = await owner.get('/admin/partners?period=all');
+  assert.equal(page.status, 200);
+  assert.match(page.text, /Partner contribution statement/);
+  assert.match(page.text, /Bhavesh Reddy Pagireddy[\s\S]*Resigned/);
+  assert.match((await owner.get(`/admin/partners/${harsha.id}`)).text, /Partner Test Client/);
+
+  // Bulk credit everyone not yet credited.
+  await owner.post('/admin/partners/assign', { partner_id: String(harsha.id), segment: '' });
+  assert.equal(Number((await db('clients').whereNull('partner_id').count({ n: '*' }).first()).n), 0);
+
+  // Staff without a partner link can't see it; a linked partner can view but not edit.
+  const plain = await staffUser('Plain Staff', 'plain@test.local');
+  assert.equal((await plain.b.get('/admin/partners')).status, 403);
+  const linked = await staffUser('Abhay A', 'abhay@test.local');
+  await db('partners').where({ dpin: '11342034' }).update({ user_id: linked.id });
+  assert.equal((await linked.b.get('/admin/partners')).status, 200);
+  assert.equal((await linked.b.post('/admin/partners/assign', { partner_id: String(harsha.id) })).status, 403);
+});
+
 // Runs last: it ends by deleting every invoice.
 test('invoice numbers: typed by hand, automatic continues past them, and an owner-only reset', async () => {
   const owner = new Browser();

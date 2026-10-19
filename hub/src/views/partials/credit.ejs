@@ -1,0 +1,18 @@
+<%# "Brought in by": credits this client/student's revenue to a partner. Expects creditClient. %>
+<% const pl = locals.partnersList || []; const current = pl.find(function (p) { return p.id === creditClient.partner_id; }); %>
+<% if (pl.length) { %>
+<hr>
+<% if (isAdmin) { %>
+<form method="post" action="/admin/partners/credit/<%= creditClient.id %>" class="row" style="flex-wrap:nowrap">
+  <%- include('csrf') %>
+  <label for="credit-<%= creditClient.id %>" class="small mb-0 nowrap" style="font-weight:600">Brought in by</label>
+  <select id="credit-<%= creditClient.id %>" name="partner_id" data-autosubmit style="padding:6px 8px;font-size:13.5px">
+    <option value="">— Not credited —</option>
+    <% pl.forEach(function (p) { %><option value="<%= p.id %>" <%= h.selected(creditClient.partner_id, p.id) %>><%= p.name %><%= p.status === 'resigned' ? ' (resigned)' : '' %></option><% }) %>
+  </select>
+  <noscript><button class="btn btn-ghost btn-sm" type="submit">Save</button></noscript>
+</form>
+<% } else { %>
+<p class="small mb-0"><b>Brought in by:</b> <%= current ? current.name : 'Not credited' %></p>
+<% } %>
+<% } %>

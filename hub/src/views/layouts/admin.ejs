@@ -28,7 +28,8 @@
         ['/admin/invoices', 'invoices', 'Invoices'],
         ['/admin/payments', 'payments', 'Payments', c.payments],
         ['/admin/retainers', 'retainers', 'Retainers'],
-      ].concat(isAdmin ? [['/admin/finance', 'finance', 'Finance & costs']] : []);
+      ].concat(isAdmin ? [['/admin/finance', 'finance', 'Finance & costs']] : [])
+        .concat(isAdmin || locals.isPartner ? [['/admin/partners', 'partners', 'Partners']] : []);
       const adminItems = isAdmin ? [
         ['/admin/settings', 'settings', 'Settings'],
         ['/admin/team', 'team', 'Team'],

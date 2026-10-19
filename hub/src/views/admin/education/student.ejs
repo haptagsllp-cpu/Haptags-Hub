@@ -92,6 +92,7 @@
           <dt>State</dt><dd><%= st.state || '—' %></dd>
           <dt>Enrolled</dt><dd><%= h.dateTime(st.created_at) %></dd>
         </dl>
+        <%- include('../../partials/credit', { creditClient: st }) %>
         <% if (st.notes) { %><hr><div class="prose small"><%- h.nl2br(st.notes) %></div><% } %>
       </div>
     </section>

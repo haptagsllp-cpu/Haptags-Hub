@@ -74,6 +74,7 @@
           <dt>GSTIN</dt><dd class="mono"><%= client.gstin || '—' %></dd>
           <dt>Address</dt><dd><%= [client.address, client.city, client.state, client.pincode].filter(Boolean).join(', ') || '—' %></dd>
         </dl>
+        <%- include('../../partials/credit', { creditClient: client }) %>
         <% if (client.notes) { %><hr><div class="small" style="white-space:pre-wrap"><%= client.notes %></div><% } %>
       </div>
     </section>

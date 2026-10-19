@@ -1,0 +1,10 @@
+<div class="form-grid">
+  <div class="field full"><label for="pf-name">Full name</label><input id="pf-name" name="name" type="text" value="<%= p.name || '' %>" required></div>
+  <div class="field"><label for="pf-dpin">DIN / DPIN</label><input id="pf-dpin" name="dpin" type="text" class="mono" value="<%= p.dpin || '' %>"></div>
+  <div class="field"><label for="pf-des">Designation</label><input id="pf-des" name="designation" type="text" value="<%= p.designation || 'Designated Partner' %>"></div>
+  <div class="field"><label for="pf-status">Status</label><select id="pf-status" name="status"><option value="active" <%= h.selected(p.status, 'active') %>>Active</option><option value="resigned" <%= h.selected(p.status, 'resigned') %>>Resigned</option></select></div>
+  <div class="field"><label for="pf-user">Hub login</label><select id="pf-user" name="user_id"><option value="">— None —</option><% (users || []).forEach(function (u) { %><option value="<%= u.id %>" <%= h.selected(p.user_id, u.id) %>><%= u.name %></option><% }) %></select><div class="hint">Lets them view this page.</div></div>
+  <div class="field"><label for="pf-joined">Joined on</label><input id="pf-joined" name="joined_on" type="date" value="<%= p.joined_on ? String(p.joined_on).slice(0, 10) : '' %>"></div>
+  <div class="field"><label for="pf-left">Resigned on</label><input id="pf-left" name="left_on" type="date" value="<%= p.left_on ? String(p.left_on).slice(0, 10) : '' %>"></div>
+  <div class="field full"><label for="pf-notes">Notes</label><textarea id="pf-notes" name="notes" rows="2"><%= p.notes || '' %></textarea></div>
+</div>

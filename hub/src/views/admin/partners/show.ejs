@@ -1,0 +1,48 @@
+<%
+  const billed = clients.reduce(function (s, c) { return s + c.billed; }, 0);
+  const paid = clients.reduce(function (s, c) { return s + c.paid; }, 0);
+%>
+<div class="crumbs"><a href="/admin/partners">Partners</a> / <%= partner.name %></div>
+<div class="page-head">
+  <div>
+    <h1><%= partner.name %> <% if (partner.status === 'resigned') { %><span class="badge tone-grey">Resigned</span><% } %></h1>
+    <div class="sub"><%= partner.designation %><%= partner.dpin ? ' · DIN/DPIN ' + partner.dpin : '' %><%= partner.joined_on ? ' · joined ' + h.date(partner.joined_on) : '' %><%= partner.left_on ? ' · resigned ' + h.date(partner.left_on) : '' %></div>
+  </div>
+  <div class="actions no-print"><button class="btn btn-ghost" type="button" data-print><%- h.icon('download', 16) %> Print / save PDF</button></div>
+</div>
+<div class="stats">
+  <div class="stat"><div class="label">Clients brought in</div><div class="value"><%= clients.filter(function (c) { return c.segment !== 'student'; }).length %></div></div>
+  <div class="stat"><div class="label">Students brought in</div><div class="value"><%= clients.filter(function (c) { return c.segment === 'student'; }).length %></div></div>
+  <div class="stat"><div class="label">Invoiced (all time)</div><div class="value"><%= h.inr(billed) %></div></div>
+  <div class="stat hero-stat"><div class="label">Collected (all time)</div><div class="value"><%= h.inr(paid) %></div></div>
+</div>
+<div class="split">
+  <section class="card">
+    <div class="card-head"><h3>Clients and students credited</h3><span class="muted"><%= clients.length %></span></div>
+    <% if (!clients.length) { %><div class="empty"><b>None credited</b>No client or student in the Hub is recorded as brought in by <%= partner.name.split(' ')[0] %>.</div><% } else { %>
+    <div class="table-wrap"><table class="table">
+      <thead><tr><th>Name</th><th>Type</th><th class="num">Invoiced</th><th class="num">Collected</th></tr></thead>
+      <tbody>
+        <% clients.forEach(function (c) { %>
+        <tr>
+          <td><a class="strong" href="<%= c.segment === 'student' ? '/admin/education/students/' + c.id : '/admin/clients/' + c.id %>"><%= c.name %></a><% if (c.college) { %><span class="sub"><%= c.college %></span><% } %></td>
+          <td><%= c.segment === 'student' ? 'Student' : 'Client' %></td>
+          <td class="num"><%= h.inr(c.billed) %></td>
+          <td class="num"><%= h.inr(c.paid) %></td>
+        </tr>
+        <% }) %>
+      </tbody>
+    </table></div>
+    <% } %>
+  </section>
+  <% if (canEdit) { %>
+  <form method="post" action="/admin/partners/<%= partner.id %>" class="card card-pad no-print">
+    <%- include('../../partials/csrf') %>
+    <h3>Details</h3>
+    <%- include('_fields', { p: partner }) %>
+    <button class="btn" type="submit">Save</button>
+  </form>
+  <% } else if (partner.notes) { %>
+  <section class="card card-pad"><h3>Notes</h3><div class="small" style="white-space:pre-wrap"><%= partner.notes %></div></section>
+  <% } %>
+</div>

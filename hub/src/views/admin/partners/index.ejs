@@ -1,0 +1,91 @@
+<%
+  const share = function (v) { return total.collected > 0 ? Math.round(v / total.collected * 1000) / 10 : 0; };
+  const tenure = function (p) {
+    if (p.joined_on && p.left_on) return h.date(p.joined_on) + ' – ' + h.date(p.left_on);
+    if (p.joined_on) return 'since ' + h.date(p.joined_on);
+    if (p.left_on) return 'until ' + h.date(p.left_on);
+    return '';
+  };
+%>
+<div class="page-head">
+  <div>
+    <h1>Partners</h1>
+    <div class="sub">Revenue brought in by each partner, from the invoices and payments recorded in the Hub.</div>
+  </div>
+  <div class="actions no-print">
+    <button class="btn btn-ghost" type="button" data-print><%- h.icon('download', 16) %> Print / save PDF</button>
+    <% if (canEdit) { %><button class="btn" type="button" data-dialog="#add-partner"><%- h.icon('plus', 16) %> Add partner</button><% } %>
+  </div>
+</div>
+<div class="no-print"><%- include('../../partials/period', { periodBase: '/admin/partners' }) %></div>
+
+<section class="card statement">
+  <div class="card-head">
+    <div>
+      <h2 class="mb-0">Partner contribution statement</h2>
+      <div class="muted small"><%= settings.legal_name %><%= settings.llpin ? ' · LLPIN ' + settings.llpin : '' %> · <%= period.label %> · prepared <%= h.date(h.today()) %></div>
+    </div>
+  </div>
+  <div class="table-wrap"><table class="table">
+    <thead><tr><th>Partner</th><th class="num">Clients</th><th class="num">Students</th><th class="num">Invoiced</th><th class="num">Collected</th><th>Share of collections</th><th class="num">Outstanding</th></tr></thead>
+    <tbody>
+      <% rows.forEach(function (p) { const s = share(p.collected); %>
+      <tr>
+        <td>
+          <a class="strong" href="/admin/partners/<%= p.id %>"><%= p.name %></a>
+          <span class="sub"><%= p.designation %><%= p.dpin ? ' · DIN/DPIN ' + p.dpin : '' %><%= tenure(p) ? ' · ' + tenure(p) : '' %></span>
+          <% if (p.status === 'resigned') { %><span class="badge tone-grey mt-8">Resigned</span><% } %>
+        </td>
+        <td class="num"><%= p.clients %></td>
+        <td class="num"><%= p.students %></td>
+        <td class="num"><%= h.inr(p.billed) %></td>
+        <td class="num strong"><%= h.inr(p.collected) %></td>
+        <td style="min-width:160px"><div class="row" style="flex-wrap:nowrap"><div class="meter" style="flex:1" role="img" aria-label="<%= s %>% of collections"><span style="width:<%= s %>%"></span></div><span class="small nowrap"><%= s %>%</span></div></td>
+        <td class="num"><%= h.inr(p.outstanding) %></td>
+      </tr>
+      <% }) %>
+      <% if (unassigned.clients || unassigned.students || unassigned.collected || unassigned.billed) { const s = share(unassigned.collected); %>
+      <tr class="muted">
+        <td><b>Not yet credited</b><span class="sub">Clients and students with no partner set</span></td>
+        <td class="num"><%= unassigned.clients %></td>
+        <td class="num"><%= unassigned.students %></td>
+        <td class="num"><%= h.inr(unassigned.billed) %></td>
+        <td class="num"><%= h.inr(unassigned.collected) %></td>
+        <td><div class="row" style="flex-wrap:nowrap"><div class="meter" style="flex:1"><span style="width:<%= s %>%"></span></div><span class="small nowrap"><%= s %>%</span></div></td>
+        <td class="num"><%= h.inr(unassigned.outstanding) %></td>
+      </tr>
+      <% } %>
+    </tbody>
+    <tfoot><tr><th>Total</th><th></th><th></th><th class="num"><%= h.inr(total.billed) %></th><th class="num"><%= h.inr(total.collected) %></th><th></th><th class="num"><%= h.inr(total.outstanding) %></th></tr></tfoot>
+  </table></div>
+  <div class="card-body small muted">
+    How this is calculated: each client and student is credited to the partner who brought them in, as set on their page in the Hub.
+    “Invoiced” is invoices issued and “Collected” is payments received in the period shown, for those clients and students.
+  </div>
+</section>
+
+<% if (canEdit && (unassigned.clients || unassigned.students)) { %>
+<form method="post" action="/admin/partners/assign" class="card card-pad mt-16 no-print" data-confirm="Credit all clients/students that have no partner yet to the selected partner?">
+  <%- include('../../partials/csrf') %>
+  <h3>Credit everyone not yet credited</h3>
+  <p class="muted small mt-0"><%= unassigned.clients %> client<%= unassigned.clients === 1 ? '' : 's' %> and <%= unassigned.students %> student<%= unassigned.students === 1 ? '' : 's' %> have no partner set. You can also set it one by one on each client’s or student’s page.</p>
+  <div class="row">
+    <select name="partner_id" aria-label="Partner" style="width:auto"><% rows.forEach(function (p) { %><option value="<%= p.id %>"><%= p.name %></option><% }) %></select>
+    <select name="segment" aria-label="Which records" style="width:auto"><option value="">Clients and students</option><option value="business">Clients only</option><option value="student">Students only</option></select>
+    <button class="btn" type="submit">Credit them</button>
+  </div>
+</form>
+<% } %>
+
+<% if (canEdit) { %>
+<dialog class="modal" id="add-partner" aria-labelledby="add-partner-title">
+  <form method="post" action="/admin/partners">
+    <%- include('../../partials/csrf') %>
+    <div class="modal-head"><h2 id="add-partner-title">Add partner</h2><button class="icon-btn" type="button" data-close aria-label="Close"><%- h.icon('x') %></button></div>
+    <div class="modal-body">
+      <%- include('_fields', { p: {} }) %>
+    </div>
+    <div class="modal-foot"><button class="btn btn-ghost" type="button" data-close>Cancel</button><button class="btn" type="submit">Add partner</button></div>
+  </form>
+</dialog>
+<% } %>
