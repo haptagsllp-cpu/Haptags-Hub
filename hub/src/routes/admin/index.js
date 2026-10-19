@@ -44,9 +44,10 @@ router.get('/', async (req, res) => {
   const prevSameDay = addDays(prevStart, Number(today.slice(8, 10)) - 1);
   const yearStart = addMonths(monthStart, -11);
   const s = await getSettings();
-  const [todaysMeetings, news] = await Promise.all([
+  const [todaysMeetings, news, upcomingHolidays] = await Promise.all([
     meetingsFor(req.user.id, { from: istToUtc(today, '00:00'), to: istToUtc(addDays(today, 1), '00:00') }),
     unreadFor(req.user.id).limit(3),
+    db('holidays').whereNot('kind', 'observance').where('date', '>=', today).where('date', '<=', addDays(today, 60)).orderBy('date').limit(4),
   ]);
 
   const [
@@ -131,6 +132,7 @@ router.get('/', async (req, res) => {
     hour: Number(new Date(Date.now() + 5.5 * 3600000).toISOString().slice(11, 13)),
     nowSql: nowSql(),
     todaysMeetings: todaysMeetings.map((m) => ({ ...m, ...timing(m) })),
+    upcomingHolidays,
     news,
   });
 });

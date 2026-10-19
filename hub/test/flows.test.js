@@ -20,6 +20,7 @@ Object.assign(process.env, {
   ADMIN_EMAIL: 'owner@test.local',
   ADMIN_PASSWORD: 'owner-password-1',
   LMS_API_URL: process.env.TEST_LMS_API_URL || '', // tests never call the real LMS
+  HOLIDAYS_ICS_URL: '', // nor Google's holiday calendar
   NODE_ENV: 'test',
   LMS_KEY_SHA256: crypto.createHash('sha256').update('test-lms-key').digest('hex'),
 });
@@ -675,6 +676,48 @@ test('certificates from the LMS, CSV import of past students, and uploads', asyn
   } finally {
     config.lms.apiUrl = '';
     lms.close();
+  }
+});
+
+test('calendar: Indian holidays from the iCal feed, plus company holidays', async () => {
+  const http = require('http');
+  const ics = [
+    'BEGIN:VCALENDAR',
+    'BEGIN:VEVENT', 'DTSTART;VALUE=DATE:20261108', 'DESCRIPTION:Public holiday', 'SUMMARY:Diwali/Deepavali', 'END:VEVENT',
+    'BEGIN:VEVENT', 'DTSTART;VALUE=DATE:20261101', 'DESCRIPTION:Observance\\nTo hide observances\\, go to Google Calendar Setting', 'SUMMARY:Karva', '  Chauth', 'END:VEVENT',
+    'BEGIN:VEVENT', 'DTSTART;VALUE=DATE:20270310', 'DESCRIPTION:Public holiday\\nDate is tentative and may change.', 'SUMMARY:Ramzan Id (tentative)', 'END:VEVENT',
+    'END:VCALENDAR',
+  ].join('\r\n');
+  const feed = http.createServer((req, res) => { res.writeHead(200, { 'content-type': 'text/calendar' }); res.end(ics); });
+  await new Promise((r) => feed.listen(0, r));
+  process.env.HOLIDAYS_ICS_URL = `http://127.0.0.1:${feed.address().port}/basic.ics`;
+  try {
+    const owner = new Browser();
+    await owner.login('owner@test.local', 'owner-password-1');
+    // The first calendar visit fetches the list.
+    let page = await owner.get('/admin/calendar?month=2026-11');
+    assert.match(page.text, /Diwali\/Deepavali/);
+    assert.doesNotMatch(page.text, /Karva Chauth/, 'observances are hidden by default');
+    assert.match((await owner.get('/admin/calendar?month=2026-11&obs=1')).text, /Karva Chauth/, 'folded iCal lines are joined');
+    const ramzan = await db('holidays').where({ name: 'Ramzan Id' }).first();
+    assert.equal(ramzan.tentative ? 1 : 0, 1);
+    assert.equal(ramzan.kind, 'public');
+
+    // Company holiday, visible to everyone; staff can't add them.
+    await owner.get('/admin/calendar/holidays?year=2026');
+    await owner.post('/admin/calendar/holidays', { date: '2026-11-01', name: 'Karnataka Rajyotsava', note: 'Office closed' });
+    const staff = await staffUser('Cal Staff', 'cal@test.local');
+    page = await staff.b.get('/admin/calendar/holidays?year=2026');
+    assert.match(page.text, /Karnataka Rajyotsava/);
+    assert.equal((await staff.b.post('/admin/calendar/holidays', { date: '2026-12-01', name: 'Nope' })).status, 403);
+
+    // A re-sync replaces Google's list but keeps company holidays.
+    await owner.post('/admin/calendar/holidays/sync', {});
+    assert.equal(Number((await db('holidays').where({ source: 'google' }).count({ n: '*' }).first()).n), 3);
+    assert.ok(await db('holidays').where({ name: 'Karnataka Rajyotsava' }).first());
+  } finally {
+    process.env.HOLIDAYS_ICS_URL = '';
+    feed.close();
   }
 });
 

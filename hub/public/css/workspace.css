@@ -205,3 +205,9 @@ dialog.modal::backdrop { background: rgba(2, 33, 61, .45); }
   .card, .stat { box-shadow: none; break-inside: avoid; }
   .meter, .meter > span { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }
+
+/* Holidays on the calendar */
+.cal-day.holiday { background: #fff7ed; }
+.cal-day.holiday.out { background: #fdf3e7; }
+.k-holiday { background: #ffedd5; border-color: #ea580c; color: #9a3412; font-weight: 600; }
+.k-observance { background: #f1f5f9; border-color: #94a3b8; color: var(--text-2); }

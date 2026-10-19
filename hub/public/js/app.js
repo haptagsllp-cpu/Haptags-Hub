@@ -169,6 +169,11 @@
     syncBulk();
   }
 
+  // A checkbox that switches between two URLs (e.g. show/hide observances on the calendar).
+  $$('[data-href-on]').forEach(function (cb) {
+    cb.addEventListener('change', function () { location.href = cb.getAttribute(cb.checked ? 'data-href-on' : 'data-href-off'); });
+  });
+
   // Auto-submit filters
   $$('[data-autosubmit]').forEach(function (el) { el.addEventListener('change', function () { el.form.submit(); }); });
 

@@ -49,6 +49,7 @@ const DEFAULTS = {
   lead_auto_reply: '1',
   lead_api_key: '',
   automation_last_run: '',
+  holidays_synced_at: '',
 };
 
 // The cache is loaded at startup and reloaded after every write, so getSettings() never has to

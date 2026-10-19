@@ -125,6 +125,17 @@
       <% } %>
     </section>
 
+    <% if (upcomingHolidays.length) { %>
+    <section class="card">
+      <div class="card-head"><h3>Upcoming holidays</h3><a class="small" href="/admin/calendar/holidays">All holidays →</a></div>
+      <ul class="list">
+        <% upcomingHolidays.forEach(function (hd) { const ds = String(hd.date).slice(0, 10); %>
+        <li><div class="grow"><span class="title"><%= hd.name %></span><span class="meta"><%= new Date(ds + 'T00:00:00Z').toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'short', timeZone: 'UTC' }) %><%= hd.tentative ? ' · date may change' : '' %></span></div><%- h.badge(hd.kind === 'company' ? 'won' : 'proposal', hd.kind === 'company' ? 'Office closed' : 'Public holiday') %></li>
+        <% }) %>
+      </ul>
+    </section>
+    <% } %>
+
     <section class="card">
       <div class="card-head"><h3>Pipeline by stage</h3><a class="small" href="/admin/leads">Leads →</a></div>
       <div class="card-body">

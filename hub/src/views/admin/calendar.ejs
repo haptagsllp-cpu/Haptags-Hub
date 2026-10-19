@@ -1,33 +1,64 @@
+<%
+  const keep = function (extra) {
+    const q = Object.assign({ month: month, scope: mine ? '' : 'team', obs: observances ? '1' : '' }, extra || {});
+    return h.qs('/admin/calendar', q);
+  };
+%>
 <div class="page-head">
-  <div><h1>Calendar</h1><div class="sub">Meetings, project deadlines and lead follow-ups, in India time.</div></div>
+  <div><h1>Calendar</h1><div class="sub">Meetings, holidays, project deadlines and lead follow-ups, in India time.</div></div>
   <div class="actions">
-    <a class="btn btn-ghost" href="/admin/calendar?month=<%= prev %><%= mine ? '' : '&scope=team' %>" aria-label="Previous month"><%- h.icon('back', 16) %></a>
-    <a class="btn btn-ghost" href="/admin/calendar<%= mine ? '' : '?scope=team' %>">Today</a>
-    <a class="btn btn-ghost" href="/admin/calendar?month=<%= next %><%= mine ? '' : '&scope=team' %>" aria-label="Next month"><%- h.icon('arrow', 16) %></a>
+    <a class="btn btn-ghost" href="<%= keep({ month: prev }) %>" aria-label="Previous month"><%- h.icon('back', 16) %></a>
+    <a class="btn btn-ghost" href="<%= keep({ month: '' }) %>">Today</a>
+    <a class="btn btn-ghost" href="<%= keep({ month: next }) %>" aria-label="Next month"><%- h.icon('arrow', 16) %></a>
+    <a class="btn btn-ghost" href="/admin/calendar/holidays?year=<%= month.slice(0, 4) %>"><%- h.icon('calendar', 16) %> Holidays</a>
     <a class="btn" href="/admin/meetings/new"><%- h.icon('plus', 16) %> Meeting</a>
   </div>
 </div>
 <div class="row-between mb-16">
   <h2 class="mb-0"><%= label %></h2>
-  <nav class="tabs mb-0">
-    <a href="/admin/calendar?month=<%= month %>" class="<%= mine ? 'active' : '' %>">Mine</a>
-    <a href="/admin/calendar?month=<%= month %>&scope=team" class="<%= mine ? '' : 'active' %>">Whole team</a>
-  </nav>
+  <div class="row">
+    <label class="check small mb-0"><input type="checkbox" <%= observances ? 'checked' : '' %> data-href-on="<%= keep({ obs: '1' }) %>" data-href-off="<%= keep({ obs: '' }) %>"> Show festivals &amp; observances</label>
+    <nav class="tabs mb-0">
+      <a href="<%= keep({ scope: '' }) %>" class="<%= mine ? 'active' : '' %>">Mine</a>
+      <a href="<%= keep({ scope: 'team' }) %>" class="<%= mine ? '' : 'active' %>">Whole team</a>
+    </nav>
+  </div>
 </div>
 <div class="card cal">
   <div class="cal-head"><% ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].forEach(function (d) { %><div><%= d %></div><% }) %></div>
   <div class="cal-grid">
     <% grid.forEach(function (d) { %>
-    <div class="cal-day<%= d.inMonth ? '' : ' out' %><%= d.today ? ' today' : '' %>">
+    <div class="cal-day<%= d.inMonth ? '' : ' out' %><%= d.today ? ' today' : '' %><%= d.off ? ' holiday' : '' %>">
       <a class="cal-date" href="/admin/meetings/new?date=<%= d.date %>" title="Schedule a meeting on <%= h.date(d.date) %>"><%= d.day %></a>
-      <% d.items.slice(0, 4).forEach(function (it) { %>
+      <% d.holidays.forEach(function (hd) { %>
+      <span class="cal-item k-<%= hd.kind === 'observance' ? 'observance' : 'holiday' %>" title="<%= hd.name %><%= hd.kind === 'company' ? ' (company holiday)' : hd.kind === 'public' ? ' (public holiday)' : ' (observance)' %><%= hd.tentative ? ', date may change' : '' %>"><%= hd.name %><%= hd.tentative ? '*' : '' %></span>
+      <% }) %>
+      <% d.items.slice(0, Math.max(1, 4 - d.holidays.length)).forEach(function (it) { %>
       <a class="cal-item k-<%= it.kind %>" href="<%= it.href %>" title="<%= (it.time ? it.time + ' ' : '') + it.title %>"><% if (it.time) { %><b><%= it.time %></b> <% } %><%= it.title %></a>
       <% }) %>
-      <% if (d.items.length > 4) { %><span class="cal-more">+<%= d.items.length - 4 %> more</span><% } %>
+      <% const shown = Math.max(1, 4 - d.holidays.length); if (d.items.length > shown) { %><span class="cal-more">+<%= d.items.length - shown %> more</span><% } %>
     </div>
     <% }) %>
   </div>
 </div>
-<div class="row small muted mt-8">
-  <span class="cal-key k-meeting">Meeting</span><span class="cal-key k-project">Project due</span><span class="cal-key k-lead">Lead follow-up</span>
+<div class="row-between mt-8">
+  <div class="row small muted">
+    <span class="cal-key k-holiday">Holiday</span><% if (observances) { %><span class="cal-key k-observance">Festival / observance</span><% } %><span class="cal-key k-meeting">Meeting</span><span class="cal-key k-project">Project due</span><span class="cal-key k-lead">Lead follow-up</span>
+  </div>
+  <span class="small muted">* date may change</span>
 </div>
+
+<% if (monthHolidays.length) { %>
+<section class="card mt-16">
+  <div class="card-head"><h3>Holidays in <%= label %></h3><a class="small" href="/admin/calendar/holidays?year=<%= month.slice(0, 4) %>">Full year →</a></div>
+  <ul class="list">
+    <% monthHolidays.forEach(function (hd) { const ds = String(hd.date).slice(0, 10); %>
+    <li>
+      <div class="meeting-time"><b><%= Number(ds.slice(8)) %> <%= label.split(' ')[0].slice(0, 3) %></b><span><%= new Date(ds + 'T00:00:00Z').toLocaleDateString('en-IN', { weekday: 'short', timeZone: 'UTC' }) %></span></div>
+      <div class="grow"><span class="title"><%= hd.name %></span><span class="meta"><%= hd.kind === 'company' ? 'Company holiday' + (hd.note ? ' · ' + hd.note : '') : hd.kind === 'public' ? 'Public holiday' : 'Festival / observance' %><%= hd.tentative ? ' · date may change' : '' %></span></div>
+      <%- hd.kind === 'observance' ? '' : h.badge(hd.kind === 'company' ? 'won' : 'proposal', hd.kind === 'company' ? 'Office closed' : 'Public holiday') %>
+    </li>
+    <% }) %>
+  </ul>
+</section>
+<% } %>

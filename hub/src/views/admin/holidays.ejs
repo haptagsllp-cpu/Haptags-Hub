@@ -1,0 +1,59 @@
+<%
+  const upcoming = rows.find(function (r) { return String(r.date).slice(0, 10) >= today && r.kind !== 'observance'; });
+  const off = rows.filter(function (r) { return r.kind !== 'observance'; }).length;
+%>
+<div class="crumbs"><a href="/admin/calendar">Calendar</a> / Holidays</div>
+<div class="page-head">
+  <div>
+    <h1>Holidays <%= year %></h1>
+    <div class="sub">Indian public holidays<%= observances ? ', festivals' : '' %> and company holidays. <%= off %> holiday<%= off === 1 ? '' : 's' %> this year<%= upcoming ? ' · next: ' + upcoming.name + ', ' + h.date(String(upcoming.date).slice(0, 10)) : '' %>.</div>
+  </div>
+  <div class="actions">
+    <a class="btn btn-ghost" href="/admin/calendar/holidays?year=<%= year - 1 %><%= observances ? '&obs=1' : '' %>" aria-label="Previous year"><%- h.icon('back', 16) %> <%= year - 1 %></a>
+    <a class="btn btn-ghost" href="/admin/calendar/holidays?year=<%= year + 1 %><%= observances ? '&obs=1' : '' %>" aria-label="Next year"><%= year + 1 %> <%- h.icon('arrow', 16) %></a>
+    <button class="btn btn-ghost" type="button" data-print><%- h.icon('download', 16) %> Print</button>
+  </div>
+</div>
+<nav class="tabs no-print">
+  <a href="/admin/calendar/holidays?year=<%= year %>" class="<%= observances ? '' : 'active' %>">Holidays</a>
+  <a href="/admin/calendar/holidays?year=<%= year %>&obs=1" class="<%= observances ? 'active' : '' %>">Include festivals &amp; observances</a>
+</nav>
+<div class="split">
+  <section class="card">
+    <% if (!rows.length) { %><div class="empty"><b>No holidays for <%= year %> yet</b><%= feed ? 'The Indian holiday list usually covers this year and next.' : '' %></div><% } else { %>
+    <div class="table-wrap"><table class="table">
+      <thead><tr><th>Date</th><th>Day</th><th>Holiday</th><th>Type</th><% if (isAdmin) { %><th></th><% } %></tr></thead>
+      <tbody>
+        <% rows.forEach(function (hd) { const ds = String(hd.date).slice(0, 10); const past = ds < today; %>
+        <tr class="<%= past ? 'muted' : '' %>">
+          <td class="nowrap"><%= h.date(ds) %></td>
+          <td><%= new Date(ds + 'T00:00:00Z').toLocaleDateString('en-IN', { weekday: 'long', timeZone: 'UTC' }) %></td>
+          <td><b><%= hd.name %></b><% if (hd.note) { %><span class="sub"><%= hd.note %></span><% } %><% if (hd.tentative) { %><span class="sub">Date may change</span><% } %></td>
+          <td><%- hd.kind === 'company' ? h.badge('won', 'Company holiday') : hd.kind === 'public' ? h.badge('proposal', 'Public holiday') : h.badge('draft', 'Observance') %></td>
+          <% if (isAdmin) { %><td><% if (hd.source === 'company') { %><form method="post" action="/admin/calendar/holidays/<%= hd.id %>/delete" class="inline" data-confirm="Remove <%= hd.name %>?"><%- include('../partials/csrf') %><button class="btn btn-ghost btn-sm" type="submit" aria-label="Remove"><%- h.icon('trash', 15) %></button></form><% } %></td><% } %>
+        </tr>
+        <% }) %>
+      </tbody>
+    </table></div>
+    <% } %>
+  </section>
+  <div class="stack no-print">
+    <% if (isAdmin) { %>
+    <form method="post" action="/admin/calendar/holidays" class="card card-pad">
+      <%- include('../partials/csrf') %>
+      <h3>Add a company holiday</h3>
+      <p class="muted small mt-0">For days the office is closed that aren’t national holidays, e.g. Karnataka Rajyotsava (1 Nov) or Ugadi. Everyone sees it on the calendar.</p>
+      <div class="field"><label for="hd-date">Date</label><input id="hd-date" name="date" type="date" required></div>
+      <div class="field"><label for="hd-name">Name</label><input id="hd-name" name="name" type="text" maxlength="190" placeholder="e.g. Karnataka Rajyotsava" required></div>
+      <div class="field"><label for="hd-note">Note <span class="muted">(optional)</span></label><input id="hd-note" name="note" type="text" maxlength="255" placeholder="e.g. Office closed"></div>
+      <button class="btn btn-block" type="submit">Add holiday</button>
+    </form>
+    <% } %>
+    <section class="card card-pad small muted">
+      Indian public holidays and festivals come from Google’s public “Holidays in India” calendar and refresh daily<%= syncedAt ? ' (last updated ' + h.dateTime(syncedAt) + ')' : '' %>. Dates of festivals that follow the moon can shift by a day; they’re marked “date may change”.
+      <% if (isAdmin && feed) { %>
+      <form method="post" action="/admin/calendar/holidays/sync" class="mt-8"><%- include('../partials/csrf') %><button class="btn btn-ghost btn-sm" type="submit">Update now</button></form>
+      <% } %>
+    </section>
+  </div>
+</div>
