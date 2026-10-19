@@ -192,3 +192,7 @@ dialog.modal::backdrop { background: rgba(2, 33, 61, .45); }
   .period-custom input[type=date] { flex: 1; min-width: 130px; }
   .txn-desc, .txn-desc .sub { max-width: 220px; }
 }
+
+.bulk-bar { position: sticky; top: 70px; z-index: 10; display: flex; align-items: center; gap: 12px; margin-bottom: 12px; padding: 10px 14px; border-radius: 12px; background: var(--navy); color: #fff; font-weight: 600; box-shadow: var(--shadow); }
+.bulk-bar .btn-danger { margin-left: auto; }
+.table input[type=checkbox] { width: 16px; height: 16px; accent-color: var(--blue); }

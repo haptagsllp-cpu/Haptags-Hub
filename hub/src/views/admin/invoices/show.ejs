@@ -101,6 +101,16 @@
         </form>
       </details>
       <% } %>
+      <% if (isAdmin) { %>
+      <details>
+        <summary class="small muted" style="cursor:pointer">Delete this invoice…</summary>
+        <form method="post" action="/admin/invoices/<%= doc.id %>/delete" class="mt-8" data-confirm="Permanently delete <%= doc.number %><%= payments.length ? ' and its ' + payments.length + ' payment' + (payments.length === 1 ? '' : 's') : '' %>? This can’t be undone.">
+          <%- include('../../partials/csrf') %>
+          <p class="small muted mt-0">Removes it completely<%= payments.length ? ', with its payments' : '' %>. To keep a record instead, void it.</p>
+          <button class="btn btn-danger btn-sm" type="submit"><%- h.icon('trash', 14) %> Delete invoice</button>
+        </form>
+      </details>
+      <% } %>
       <details>
         <summary class="small muted" style="cursor:pointer">Void this invoice…</summary>
         <form method="post" action="/admin/invoices/<%= doc.id %>/void" class="mt-8" data-confirm="Void <%= doc.number %>? The number stays reserved and it can’t be undone.">
@@ -109,6 +119,8 @@
           <button class="btn btn-danger btn-sm" type="submit">Void invoice</button>
         </form>
       </details>
+    <% } else if (isAdmin) { %>
+      <form method="post" action="/admin/invoices/<%= doc.id %>/delete" data-confirm="Permanently delete <%= doc.number %>? This can’t be undone."><%- include('../../partials/csrf') %><button class="btn btn-danger btn-sm" type="submit"><%- h.icon('trash', 14) %> Delete invoice</button></form>
     <% } %>
   </div>
 </div>

@@ -36,7 +36,15 @@
             <td class="num"><%= h.inr(i.total) %></td>
             <td class="num"><%= h.inr(i.amount_paid) %></td>
             <td><%- h.badge(i.status) %></td>
-            <td class="nowrap"><% if (i.status !== 'draft' && i.status !== 'void') { %><button class="btn btn-ghost btn-sm" type="button" data-copy-text="<%= i.link %>" title="Copy payment link"><%- h.icon('link', 15) %></button><% } %></td>
+            <td class="nowrap">
+              <% if (i.status !== 'draft' && i.status !== 'void') { %><button class="btn btn-ghost btn-sm" type="button" data-copy-text="<%= i.link %>" title="Copy payment link"><%- h.icon('link', 15) %></button><% } %>
+              <% if (isAdmin || i.status === 'draft') { %>
+              <form method="post" action="/admin/invoices/<%= i.id %>/delete" class="inline" data-confirm="Permanently delete <%= i.number || 'this draft' %><%= Number(i.amount_paid) > 0 ? ' and its payments' : '' %>? This can’t be undone.">
+                <%- include('../../partials/csrf') %><input type="hidden" name="back" value="/admin/education/students/<%= st.id %>">
+                <button class="btn btn-ghost btn-sm" type="submit" title="Delete invoice" aria-label="Delete <%= i.number || 'draft' %>"><%- h.icon('trash', 15) %></button>
+              </form>
+              <% } %>
+            </td>
           </tr>
           <% }) %>
         </tbody>

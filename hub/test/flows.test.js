@@ -615,6 +615,26 @@ test('invoice numbers: typed by hand, automatic continues past them, and an owne
 
   assert.match((await owner.get('/admin/settings/invoices-backup.csv')).text, /HAP-2025-112/);
 
+  // Deleting single invoices: staff only drafts; owners and admins anything, payments included.
+  const issued = await db('invoices').where({ number: `HT/${fy}/0037` }).first();
+  await owner.post(`/admin/invoices/${issued.id}/payments`, { amount: '500', method: 'upi', paid_on: todayIST() });
+  const staffer = await staffUser('Stu Staff', 'stu@test.local');
+  await staffer.b.get(`/admin/invoices/${issued.id}`);
+  await staffer.b.post(`/admin/invoices/${issued.id}/delete`, {});
+  assert.ok(await db('invoices').where({ id: issued.id }).first(), 'staff cannot delete an issued invoice');
+  await owner.get(`/admin/invoices/${issued.id}`);
+  res = await owner.post(`/admin/invoices/${issued.id}/delete`, {});
+  assert.equal(await db('invoices').where({ id: issued.id }).first(), undefined);
+  assert.equal(Number((await db('payments').where({ invoice_id: issued.id }).count({ n: '*' }).first()).n), 0);
+
+  // Bulk delete from the list.
+  const a1 = Number((await owner.post('/admin/invoices', form({ number: 'BULK-1' }))).location.split('/').pop());
+  const a2 = Number((await owner.post('/admin/invoices', form({ number: 'BULK-2' }))).location.split('/').pop());
+  await owner.get('/admin/invoices');
+  await owner.post('/admin/invoices/bulk-delete', { ids: [String(a1), String(a2)] });
+  assert.equal(Number((await db('invoices').whereIn('id', [a1, a2]).count({ n: '*' }).first()).n), 0);
+  assert.equal((await staffer.b.post('/admin/invoices/bulk-delete', { ids: [String(auto.id)] })).status, 403);
+
   // Reset: admins who aren't the owner can't; the owner must type the confirmation.
   const admin = await staffUser('Ada Admin', 'ada@test.local', 'admin');
   await admin.b.get('/admin/settings?tab=billing');

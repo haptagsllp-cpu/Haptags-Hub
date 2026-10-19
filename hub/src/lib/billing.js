@@ -61,6 +61,24 @@ async function numberTaken(number, exceptId = 0, trx = db) {
   return Boolean(await trx('invoices').where({ number }).whereNot('id', exceptId || 0).first());
 }
 
+/**
+ * Permanently deletes invoices with their line items, history and payments. Bank lines that
+ * were matched to those payments are unlinked; quotes they came from go back to "accepted".
+ * Returns { invoices, payments } counts.
+ */
+async function deleteInvoices(trx, ids) {
+  if (!ids.length) return { invoices: 0, payments: 0 };
+  const paymentIds = await trx('payments').whereIn('invoice_id', ids).pluck('id');
+  if (paymentIds.length) await trx('bank_txns').whereIn('payment_id', paymentIds).update({ payment_id: null });
+  await trx('razorpay_orders').whereIn('invoice_id', ids).del();
+  await trx('payments').whereIn('invoice_id', ids).del();
+  await trx('line_items').where({ doc_type: 'invoice' }).whereIn('doc_id', ids).del();
+  await trx('activities').where({ entity_type: 'invoice' }).whereIn('entity_id', ids).del();
+  await trx('quotes').whereIn('invoice_id', ids).update({ invoice_id: null, status: 'accepted', updated_at: nowSql() });
+  const invoices = await trx('invoices').whereIn('id', ids).del();
+  return { invoices, payments: paymentIds.length };
+}
+
 const prefixFor = (segment, s) => (segment === 'student' ? s.edu_invoice_prefix : s.invoice_prefix);
 
 /**
@@ -354,6 +372,6 @@ async function sendReceipt(paymentId) {
 }
 
 module.exports = {
-  nextNumber, previewNumber, setNextSequence, cleanNumber, numberTaken, prefixFor, defaultTaxMode, itemsFromForm, getItems, replaceItems, deriveInvoiceStatus, refreshInvoice,
+  nextNumber, previewNumber, setNextSequence, cleanNumber, numberTaken, prefixFor, deleteInvoices, defaultTaxMode, itemsFromForm, getItems, replaceItems, deriveInvoiceStatus, refreshInvoice,
   issueInvoice, createInvoice, invoiceFromQuote, invoiceFromRetainer, sendInvoiceEmail, recordPayment, invoiceUrl,
 };

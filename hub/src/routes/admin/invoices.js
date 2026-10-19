@@ -7,7 +7,7 @@ const { getSettings } = require('../../lib/settings');
 const { computeTotals, toPaise } = require('../../lib/money');
 const {
   createInvoice, replaceItems, getItems, defaultTaxMode, issueInvoice, sendInvoiceEmail, recordPayment, invoiceUrl,
-  previewNumber, cleanNumber, numberTaken,
+  previewNumber, cleanNumber, numberTaken, deleteInvoices,
 } = require('../../lib/billing');
 const { requireAdmin } = require('../../lib/auth');
 const { logActivity, getActivities } = require('../../lib/activity');
@@ -239,21 +239,32 @@ router.post('/:id/void', async (req, res, next) => {
   res.redirect(`/admin/invoices/${inv.id}`);
 });
 
+// Anyone can delete a draft. Owners and admins can delete any invoice, with its payments.
 router.post('/:id/delete', async (req, res, next) => {
   const inv = await load(req);
   if (!inv) return next();
-  if (inv.status !== 'draft' || inv.number) {
-    req.flash('error', 'Only unissued drafts can be deleted. Void issued invoices instead.');
+  const isDraft = inv.status === 'draft';
+  if (!isDraft && !res.locals.isAdmin) {
+    req.flash('error', 'Only owners and admins can delete issued invoices. You can void it instead.');
     return res.redirect(`/admin/invoices/${inv.id}`);
   }
-  await db.transaction(async (trx) => {
-    await trx('line_items').where({ doc_type: 'invoice', doc_id: inv.id }).del();
-    await trx('activities').where({ entity_type: 'invoice', entity_id: inv.id }).del();
-    await trx('quotes').where({ invoice_id: inv.id }).update({ invoice_id: null, status: 'accepted' });
-    await trx('invoices').where({ id: inv.id }).del();
-  });
-  req.flash('success', 'Draft deleted.');
-  res.redirect('/admin/invoices');
+  const r = await db.transaction((trx) => deleteInvoices(trx, [inv.id]));
+  console.log(`[invoices] ${req.user.email} deleted ${inv.number || `draft #${inv.id}`}`);
+  req.flash('success', `${inv.number || 'Draft'} deleted${r.payments ? `, with ${r.payments} payment${r.payments === 1 ? '' : 's'}` : ''}.`);
+  res.redirect(req.body.back && /^\/admin\//.test(req.body.back) ? req.body.back : '/admin/invoices');
+});
+
+// Delete several at once from the list (owners and admins).
+router.post('/bulk-delete', requireAdmin, async (req, res) => {
+  const ids = [].concat(req.body.ids || []).map((v) => int(v, 0)).filter(Boolean);
+  if (!ids.length) {
+    req.flash('error', 'Tick the invoices you want to delete.');
+    return res.redirect('/admin/invoices');
+  }
+  const r = await db.transaction((trx) => deleteInvoices(trx, ids));
+  console.log(`[invoices] ${req.user.email} deleted ${r.invoices} invoices`);
+  req.flash('success', `Deleted ${r.invoices} invoice${r.invoices === 1 ? '' : 's'}${r.payments ? ` and ${r.payments} payment${r.payments === 1 ? '' : 's'}` : ''}.`);
+  res.redirect(req.body.back && /^\/admin\/invoices/.test(req.body.back) ? req.body.back : '/admin/invoices');
 });
 
 router.post('/:id/payments', async (req, res, next) => {

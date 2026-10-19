@@ -10,7 +10,7 @@ const {
 const { mailEnabled, sendMail } = require('../../lib/mailer');
 const { runAutomations } = require('../../lib/automation');
 const { nowSql, str, isEmail, randomToken, int, todayIST, financialYear } = require('../../lib/util');
-const { previewNumber, setNextSequence } = require('../../lib/billing');
+const { previewNumber, setNextSequence, deleteInvoices } = require('../../lib/billing');
 const { idParam } = require('./_helpers');
 
 const router = express.Router();
@@ -110,18 +110,10 @@ router.post('/settings/delete-invoices', requireAdmin, async (req, res) => {
   }
   const s = await getSettings();
   const counts = await db.transaction(async (trx) => {
-    const invoices = Number((await trx('invoices').count({ n: '*' }).first()).n);
-    const payments = Number((await trx('payments').count({ n: '*' }).first()).n);
-    await trx('bank_txns').whereNotNull('payment_id').update({ payment_id: null });
-    await trx('razorpay_orders').del();
-    await trx('payments').del();
-    await trx('line_items').where({ doc_type: 'invoice' }).del();
-    await trx('activities').where({ entity_type: 'invoice' }).del();
-    await trx('quotes').whereNotNull('invoice_id').update({ invoice_id: null, status: 'accepted', updated_at: nowSql() });
-    await trx('invoices').del();
+    const result = await deleteInvoices(trx, await trx('invoices').pluck('id'));
     // Automatic numbering starts again at 0001 in each series.
     for (const prefix of [s.invoice_prefix, s.edu_invoice_prefix]) await trx('sequences').where('name', 'like', `${prefix}:%`).del();
-    return { invoices, payments };
+    return result;
   });
   console.log(`[settings] ${req.user.email} deleted all invoices (${counts.invoices}) and payments (${counts.payments})`);
   req.flash('success', `Deleted ${counts.invoices} invoice${counts.invoices === 1 ? '' : 's'} and ${counts.payments} payment${counts.payments === 1 ? '' : 's'}. Numbering starts fresh; set where it continues below.`);

@@ -119,6 +119,23 @@
       .then(function () { sel.disabled = false; });
   });
 
+  // Bulk selection on lists: [data-check] boxes feed a [data-bulk] bar; [data-check-all] ticks the page.
+  var bulk = $('[data-bulk]');
+  if (bulk) {
+    var boxes = $$('[data-check]');
+    var syncBulk = function () {
+      var n = boxes.filter(function (b) { return b.checked; }).length;
+      bulk.hidden = n === 0;
+      $('[data-bulk-count]', bulk).textContent = n + ' selected';
+      var all = $('[data-check-all]');
+      if (all) { all.checked = n > 0 && n === boxes.length; all.indeterminate = n > 0 && n < boxes.length; }
+    };
+    boxes.forEach(function (b) { b.addEventListener('change', syncBulk); });
+    var allBox = $('[data-check-all]');
+    if (allBox) allBox.addEventListener('change', function () { boxes.forEach(function (b) { b.checked = allBox.checked; }); syncBulk(); });
+    syncBulk();
+  }
+
   // Auto-submit filters
   $$('[data-autosubmit]').forEach(function (el) { el.addEventListener('change', function () { el.form.submit(); }); });
 

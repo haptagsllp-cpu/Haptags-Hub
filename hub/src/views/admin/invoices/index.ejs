@@ -14,13 +14,25 @@
   </nav>
   <form method="get" class="mb-16"><input type="hidden" name="status" value="<%= status %>"><input type="search" name="q" value="<%= q || '' %>" placeholder="Number, client, title…" aria-label="Search invoices" style="width:220px"></form>
 </div>
+<% if (isAdmin && rows.length) { %>
+<form method="post" action="/admin/invoices/bulk-delete" id="bulk" class="bulk-bar" data-bulk data-confirm="Permanently delete the selected invoices and their payments? This can’t be undone." hidden>
+  <%- include('../../partials/csrf') %>
+  <input type="hidden" name="back" value="<%= h.qs('/admin/invoices', { status: status, q: q }) %>">
+  <span data-bulk-count>0 selected</span>
+  <button class="btn btn-danger btn-sm" type="submit"><%- h.icon('trash', 14) %> Delete selected</button>
+</form>
+<% } %>
 <div class="card">
   <% if (!rows.length) { %><div class="empty"><b>No invoices here</b>Create one, or convert an accepted quotation.</div><% } else { %>
   <div class="table-wrap"><table class="table">
-    <thead><tr><th>Invoice</th><th>Client</th><th>Date</th><th>Due</th><th>Status</th><th class="num">Total</th><th class="num">Balance</th></tr></thead>
+    <thead><tr>
+      <% if (isAdmin) { %><th style="width:36px"><input type="checkbox" data-check-all aria-label="Select all invoices on this page"></th><% } %>
+      <th>Invoice</th><th>Client</th><th>Date</th><th>Due</th><th>Status</th><th class="num">Total</th><th class="num">Balance</th>
+    </tr></thead>
     <tbody>
       <% rows.forEach(function (i) { const bal = Number(i.total) - Number(i.amount_paid); %>
       <tr>
+        <% if (isAdmin) { %><td><input type="checkbox" name="ids" value="<%= i.id %>" form="bulk" data-check aria-label="Select <%= i.number || 'draft ' + i.id %>"></td><% } %>
         <td><a class="strong mono" href="/admin/invoices/<%= i.id %>"><%= i.number || 'Draft #' + i.id %></a><span class="sub"><%= i.title || '' %></span></td>
         <td><a href="/admin/clients/<%= i.client_id %>"><%= i.client_name %></a></td>
         <td class="nowrap"><%= h.date(i.issue_date) %></td>
