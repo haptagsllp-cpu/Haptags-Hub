@@ -129,6 +129,51 @@ async function main() {
     important: true, pinned: true, created_by: ownerId, created_at: now, updated_at: now,
   });
 
+  // Education: two programs and a few students at different stages.
+  const [webId] = await db('programs').insert({ name: 'Full-stack web internship', kind: 'internship', fee: 1180000, fee_includes_gst: true, duration: '8 weeks', is_active: true, created_at: now, updated_at: now });
+  const [aiId] = await db('programs').insert({ name: 'AI & automation bootcamp', kind: 'training', fee: 590000, fee_includes_gst: true, duration: '4 weeks', is_active: true, created_at: now, updated_at: now });
+  const { enroll } = require('../src/lib/education');
+  const kids = [
+    ['Divya Nair', 'RV College of Engineering', 'B.E. CSE, 3rd year', webId, 1180000, 2, 1180000],
+    ['Arjun Patil', 'PES University', 'B.Tech ISE, 4th year', webId, 1180000, 2, 590000],
+    ['Sneha Reddy', 'Christ University', 'BCA, 2nd year', aiId, 590000, 1, 0],
+    ['Mohammed Faiz', 'BMS College of Engineering', 'B.E. ECE, 3rd year', aiId, 590000, 1, 590000],
+  ];
+  for (const [name, college, course, programId, fee, installments, paid] of kids) {
+    await enroll(
+      { name, phone: '98450' + String(Math.floor(10000 + Math.random() * 89999)), college, course, batch: 'Oct 2026', state: 'Karnataka', country: 'India' },
+      { programId, fee, installments, batch: 'Oct 2026', paidNow: paid ? { amount: paid, method: 'upi', reference: `UPI${randomToken(5)}`, paid_on: today } : null },
+      ownerId,
+    );
+  }
+
+  // Finance: six months of a realistic current-account statement.
+  const { importStatement } = require('../src/lib/finance');
+  const lines = ['Date,Narration,Chq./Ref.No.,Value Dt,Withdrawal Amt.,Deposit Amt.,Closing Balance'];
+  let bal = 250000;
+  const fmt = (d) => `${d.slice(8, 10)}/${d.slice(5, 7)}/${d.slice(2, 4)}`;
+  const add = (date, text, out, inn) => { bal += inn - out; lines.push(`${fmt(date)},"${text}",${randomToken(4)},${fmt(date)},${out ? out.toFixed(2) : ''},${inn ? inn.toFixed(2) : ''},${bal.toFixed(2)}`); };
+  for (let m = 5; m >= 0; m -= 1) {
+    const d = (day) => addDays(addMonths(`${today.slice(0, 7)}-01`, -m), day - 1);
+    add(d(1), 'NEFT CR-HDFC0000123-SUNRISE INTERIORS-INVOICE', 0, 60000 + m * 5000);
+    add(d(2), 'UPI-RAVI KUMAR-ravi@okaxis-SALARY', 35000, 0);
+    add(d(2), 'UPI-ARJUN SHETTY-arjun@ybl-SALARY', 30000, 0);
+    add(d(3), 'RENT-OFFICE MAHADEVAPURA', 18000, 0);
+    add(d(5), 'ACH D- GOOGLE WORKSPACE', 1416, 0);
+    add(d(7), 'POS 4123 HOSTINGER INDIA', m % 3 === 0 ? 8999 : 0, 0);
+    add(d(9), 'ACH D- META PLATFORMS ADS', 12000 + m * 1000, 0);
+    add(d(12), `UPI-STUDENT FEES BATCH-${m}-okaxis`, 0, 35000 + (5 - m) * 9000);
+    add(d(15), 'NEFT CR-ICIC0000456-KAVERI FOODS-RETAINER', 0, 29500);
+    add(d(18), 'SWIGGY TEAM LUNCH', 2400, 0);
+    add(d(20), 'AIRTEL BROADBAND', 1179, 0);
+    add(d(22), 'GST PMT CPIN 2604', 9000, 0);
+    add(d(25), 'UBER TRIP CLIENT VISIT', 860, 0);
+    add(d(28), 'GST CHARGES ON SMS ALERT', 17.7, 0);
+  }
+  lines.splice(1, 0, `${fmt(addMonths(`${today.slice(0, 7)}-01`, -6))},"OPENING BALANCE BY PARTNER CAPITAL",,${fmt(addMonths(`${today.slice(0, 7)}-01`, -6))},,250000.00,250000.00`);
+  await db('bank_rules').insert({ pattern: 'PARTNER CAPITAL', direction: 'in', category: 'capital_in', created_by: ownerId, created_at: now });
+  await importStatement({ text: lines.filter((l) => !/,0,0,|,0\.00,,/.test(l)).join('\n'), account: 'HDFC Current', filename: 'hdfc-demo.csv', userId: ownerId });
+
   console.log('Demo data ready.\n  Team:   demo@haptags.local / demo-password-123 (also staff@haptags.local)\n  Client: client@haptags.local / demo-password-123');
 }
 

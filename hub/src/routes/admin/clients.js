@@ -46,7 +46,8 @@ async function balances(clientIds) {
 router.get('/', async (req, res) => {
   const q = str(req.query.q, 100);
   const status = req.query.status === 'inactive' ? 'inactive' : 'active';
-  const query = db('clients').where({ status }).orderBy('name');
+  // Students and interns live under Education.
+  const query = db('clients').where({ status, segment: 'business' }).orderBy('name');
   if (q) query.where((w) => w.where('name', 'like', `%${q}%`).orWhere('contact_name', 'like', `%${q}%`).orWhere('email', 'like', `%${q}%`).orWhere('phone', 'like', `%${q}%`));
   const page = await paginate(query, req, 50);
   const ids = page.rows.map((r) => r.id);
@@ -74,6 +75,7 @@ router.post('/', async (req, res) => {
 router.get('/:id', async (req, res, next) => {
   const client = await db('clients').where({ id: idParam(req) }).first();
   if (!client) return next();
+  if (client.segment === 'student') return res.redirect(`/admin/education/students/${client.id}`);
   const [projects, quotes, invoices, retainers, tickets, users, activities, bal, lead] = await Promise.all([
     db('projects').where({ client_id: client.id }).orderBy('id', 'desc'),
     db('quotes').where({ client_id: client.id }).orderBy('id', 'desc').limit(20),

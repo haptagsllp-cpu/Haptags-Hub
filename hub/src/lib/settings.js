@@ -38,6 +38,13 @@ const DEFAULTS = {
   bank_ifsc: '',
   bank_branch: '',
 
+  // Student & internship invoices: their own number series, SAC and terms.
+  edu_invoice_prefix: 'HTE',
+  edu_sac: '999293',
+  edu_gst_rate: '18',
+  edu_due_days: '7',
+  edu_terms: 'Fees once paid are non-refundable after the program starts.\nPlease quote the invoice number with your payment.',
+
   auto_reminders: '1',
   lead_auto_reply: '1',
   lead_api_key: '',

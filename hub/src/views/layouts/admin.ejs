@@ -21,13 +21,14 @@
         ['/admin/clients', 'clients', 'Clients'],
         ['/admin/projects', 'projects', 'Projects'],
         ['/admin/tickets', 'tickets', 'Support', c.tickets],
+        ['/admin/education', 'education', 'Education'],
       ];
       const money = [
         ['/admin/quotes', 'quotes', 'Quotations'],
         ['/admin/invoices', 'invoices', 'Invoices'],
         ['/admin/payments', 'payments', 'Payments', c.payments],
         ['/admin/retainers', 'retainers', 'Retainers'],
-      ];
+      ].concat(isAdmin ? [['/admin/finance', 'finance', 'Finance & costs']] : []);
       const adminItems = isAdmin ? [
         ['/admin/settings', 'settings', 'Settings'],
         ['/admin/team', 'team', 'Team'],
@@ -80,7 +81,7 @@
   </div>
 </div>
 <div class="toasts" data-toasts aria-live="polite"></div>
-<script src="/static/js/app.js?v=2" defer></script>
+<script src="/static/js/app.js?v=3" defer></script>
 <script src="/static/js/rt.js?v=1" defer></script>
 <% (locals.scripts || []).forEach(function (s) { %><script src="/static/js/<%= s %>.js?v=1" defer></script>
 <% }) %>

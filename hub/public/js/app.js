@@ -53,6 +53,72 @@
     cb.addEventListener('change', sync); sync();
   });
 
+  // Enrolment form: picking a program fills its fee; a summary shows the instalments.
+  var enrol = $('[data-enrol]');
+  if (enrol) {
+    var inr = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 });
+    var prog = $('[name=program_id]', enrol);
+    var fee = $('[name=fee]', enrol);
+    var summary = function () {
+      var total = Math.max(0, (parseFloat(fee.value) || 0) - (parseFloat($('[name=discount]', enrol).value) || 0));
+      var n = parseInt($('[name=installments]', enrol).value, 10) || 1;
+      var paid = parseFloat($('[name=paid_now]', enrol).value) || 0;
+      $('[data-enrol-summary]', enrol).textContent = total
+        ? 'Student pays ' + inr.format(total) + (n > 1 ? ' in ' + n + ' instalments of about ' + inr.format(total / n) : '') + (paid ? '; ' + inr.format(paid) + ' received now, ' + inr.format(Math.max(0, total - paid)) + ' left.' : '.')
+        : '';
+    };
+    prog.addEventListener('change', function () {
+      var f = prog.selectedOptions[0] && prog.selectedOptions[0].getAttribute('data-fee');
+      if (f) fee.value = f;
+      summary();
+    });
+    enrol.addEventListener('input', summary);
+    summary();
+  }
+
+  // Bank statement upload: send the file as-is (no multipart), then show the result.
+  $$('[data-bank-upload]').forEach(function (form) {
+    form.addEventListener('submit', function (e) {
+      var file = $('[data-file]', form).files[0];
+      if (!file) return; // pasted text goes as a normal form post
+      e.preventDefault();
+      var err = $('[data-upload-error]', form);
+      var btn = $('button[type=submit]', form);
+      err.textContent = '';
+      if (file.size > 5 * 1024 * 1024) { err.textContent = 'That file is over 5 MB. Upload the statement in parts (e.g. one year at a time).'; return; }
+      btn.disabled = true; btn.textContent = 'Reading statement…';
+      fetch('/admin/finance/import', {
+        method: 'POST', credentials: 'same-origin', body: file,
+        headers: {
+          'content-type': 'text/csv', accept: 'application/json',
+          'x-csrf-token': $('meta[name=csrf-token]').content,
+          'x-account': encodeURIComponent($('[name=account]', form).value || ''),
+          'x-file-name': encodeURIComponent(file.name),
+        },
+      }).then(function (r) { return r.json().then(function (j) { if (!r.ok) throw new Error(j.error || 'Upload failed'); return j; }); })
+        .then(function () { location.href = '/admin/finance?period=all'; })
+        .catch(function (x) { err.textContent = x.message; btn.disabled = false; btn.textContent = 'Upload & analyse'; });
+    });
+  });
+
+  // Bank transactions: changing a category saves at once.
+  document.addEventListener('change', function (e) {
+    var sel = e.target.closest('[data-txn-category]');
+    if (!sel) return;
+    var form = sel.form;
+    var body = new URLSearchParams({ _csrf: $('meta[name=csrf-token]').content, category: sel.value });
+    sel.disabled = true;
+    fetch(form.action, { method: 'POST', credentials: 'same-origin', headers: { accept: 'application/json' }, body: body })
+      .then(function (r) { if (!r.ok) throw new Error(); })
+      .then(function () {
+        var row = sel.closest('tr');
+        if (row) row.classList.toggle('needs-review', sel.value === 'uncategorized');
+        sel.classList.add('saved'); setTimeout(function () { sel.classList.remove('saved'); }, 1200);
+      })
+      .catch(function () { window.alert('Couldn’t save that change. Please try again.'); })
+      .then(function () { sel.disabled = false; });
+  });
+
   // Auto-submit filters
   $$('[data-autosubmit]').forEach(function (el) { el.addEventListener('change', function () { el.form.submit(); }); });
 

@@ -16,7 +16,8 @@ const router = express.Router();
 
 const GROUPS = {
   company: ['company_name', 'legal_name', 'tagline', 'address', 'city', 'state', 'pincode', 'gstin', 'pan', 'llpin', 'udyam', 'email', 'phone', 'website', 'whatsapp'],
-  billing: ['invoice_prefix', 'quote_prefix', 'default_due_days', 'quote_valid_days', 'default_gst_rate', 'default_sac', 'invoice_terms', 'quote_terms'],
+  billing: ['invoice_prefix', 'quote_prefix', 'default_due_days', 'quote_valid_days', 'default_gst_rate', 'default_sac', 'invoice_terms', 'quote_terms',
+    'edu_invoice_prefix', 'edu_sac', 'edu_gst_rate', 'edu_due_days', 'edu_terms'],
   payments: ['upi_id', 'upi_name', 'bank_name', 'bank_account_name', 'bank_account_number', 'bank_ifsc', 'bank_branch'],
   automation: ['auto_reminders', 'lead_auto_reply'],
 };
@@ -43,6 +44,8 @@ router.post('/settings', requireAdmin, async (req, res) => {
   }
   if (values.gstin) values.gstin = values.gstin.toUpperCase();
   if (values.invoice_prefix) values.invoice_prefix = values.invoice_prefix.replace(/[^A-Za-z0-9-]/g, '').slice(0, 6) || DEFAULTS.invoice_prefix;
+  if (values.edu_invoice_prefix) values.edu_invoice_prefix = values.edu_invoice_prefix.replace(/[^A-Za-z0-9-]/g, '').slice(0, 6) || DEFAULTS.edu_invoice_prefix;
+  if (values.edu_invoice_prefix && values.edu_invoice_prefix === (values.invoice_prefix || '')) values.edu_invoice_prefix = `${values.edu_invoice_prefix}E`.slice(0, 6);
   if (values.quote_prefix) values.quote_prefix = values.quote_prefix.replace(/[^A-Za-z0-9-]/g, '').slice(0, 6) || DEFAULTS.quote_prefix;
   if (values.whatsapp) values.whatsapp = values.whatsapp.replace(/\D/g, '');
   await setSettings(values);

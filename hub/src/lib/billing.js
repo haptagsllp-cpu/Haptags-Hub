@@ -109,7 +109,7 @@ async function issueInvoice(trx, invoiceId) {
   if (!inv || inv.status === 'void') return inv;
   const s = await getSettings();
   const patch = { updated_at: nowSql() };
-  if (!inv.number) patch.number = await nextNumber(trx, s.invoice_prefix, inv.issue_date);
+  if (!inv.number) patch.number = await nextNumber(trx, inv.segment === 'student' ? s.edu_invoice_prefix : s.invoice_prefix, inv.issue_date);
   if (inv.status === 'draft') patch.status = 'sent';
   await trx('invoices').where({ id: invoiceId }).update(patch);
   return refreshInvoice(trx, invoiceId);
@@ -117,8 +117,10 @@ async function issueInvoice(trx, invoiceId) {
 
 async function createInvoice(trx, data, items) {
   const totals = computeTotals(items, { taxMode: data.tax_mode, gstRate: data.gst_rate, discount: data.discount });
+  const client = await trx('clients').where({ id: data.client_id }).first();
   const [id] = await trx('invoices').insert({
     client_id: data.client_id,
+    segment: client && client.segment === 'student' ? 'student' : 'business',
     project_id: data.project_id || null,
     quote_id: data.quote_id || null,
     retainer_id: data.retainer_id || null,

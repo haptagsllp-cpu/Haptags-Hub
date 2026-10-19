@@ -1,0 +1,38 @@
+<%- include('_nav') %>
+<div class="split">
+  <div class="card">
+    <% if (!rows.length) { %><div class="empty"><%- h.icon('education', 30) %><b>No programs yet</b>Add your internships and courses with their fees, and enrolling a student becomes one click.</div><% } else { %>
+    <div class="table-wrap"><table class="table">
+      <thead><tr><th>Program</th><th class="num">Fee</th><th class="num">Students</th><th class="num">Billed</th><th class="num">Collected</th><th></th></tr></thead>
+      <tbody>
+        <% rows.forEach(function (p) { const s = byId[p.id] || { students: 0, billed: 0, paid: 0 }; %>
+        <tr class="<%= p.is_active ? '' : 'muted' %>">
+          <td><a class="strong" href="/admin/education/students?program=<%= p.id %>"><%= p.name %></a><span class="sub"><%= h.humanize(p.kind) %><%= p.duration ? ' · ' + p.duration : '' %><%= p.is_active ? '' : ' · archived' %></span></td>
+          <td class="num"><%= h.inr(p.fee) %><span class="sub"><%= p.fee_includes_gst ? 'incl. GST' : '+ GST' %></span></td>
+          <td class="num"><%= s.students %></td>
+          <td class="num"><%= h.inr(s.billed) %></td>
+          <td class="num"><%= h.inr(s.paid) %></td>
+          <td class="nowrap">
+            <a class="btn btn-ghost btn-sm" href="/admin/education/students/new?program=<%= p.id %>" title="Enrol a student"><%- h.icon('plus', 15) %></a>
+            <a class="btn btn-ghost btn-sm" href="/admin/education/programs?edit=<%= p.id %>" title="Edit"><%- h.icon('edit', 15) %></a>
+            <form method="post" action="/admin/education/programs/<%= p.id %>" class="inline"><%- include('../../partials/csrf') %><input type="hidden" name="toggle" value="1"><button class="btn btn-ghost btn-sm" type="submit"><%= p.is_active ? 'Archive' : 'Restore' %></button></form>
+          </td>
+        </tr>
+        <% }) %>
+      </tbody>
+    </table></div>
+    <% } %>
+  </div>
+  <% const e = edit || {}; %>
+  <form method="post" action="/admin/education/programs<%= edit ? '/' + edit.id : '' %>" class="card card-pad">
+    <%- include('../../partials/csrf') %>
+    <h3><%= edit ? 'Edit ' + edit.name : 'Add a program' %></h3>
+    <div class="field"><label for="p-name">Name</label><input id="p-name" name="name" type="text" value="<%= e.name || '' %>" placeholder="e.g. Full-stack web internship" required></div>
+    <div class="field"><label for="p-kind">Type</label><select id="p-kind" name="kind"><% kinds.forEach(function (k) { %><option value="<%= k[0] %>" <%= h.selected(e.kind, k[0]) %>><%= k[1] %></option><% }) %></select></div>
+    <div class="field"><label for="p-fee">Fee (₹)</label><input id="p-fee" name="fee" type="number" min="0" step="1" value="<%= e.fee ? Number(e.fee) / 100 : '' %>"></div>
+    <label class="check small mb-16"><input type="checkbox" name="fee_includes_gst" value="1" <%= edit ? h.checked(e.fee_includes_gst) : 'checked' %>> Fee includes GST<%= settings.gstin ? '' : ' (GST applies once a GSTIN is set in Settings)' %></label>
+    <div class="field"><label for="p-dur">Duration</label><input id="p-dur" name="duration" type="text" value="<%= e.duration || '' %>" placeholder="e.g. 8 weeks"></div>
+    <div class="field"><label for="p-desc">Description</label><textarea id="p-desc" name="description" rows="3"><%= e.description || '' %></textarea></div>
+    <div class="row"><button class="btn" type="submit"><%= edit ? 'Save' : 'Add program' %></button><% if (edit) { %><a class="btn btn-ghost" href="/admin/education/programs">Cancel</a><% } %></div>
+  </form>
+</div>

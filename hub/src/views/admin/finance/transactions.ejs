@@ -1,0 +1,107 @@
+<%
+  const keep = { category: category, dir: dir, account: account, q: q };
+  const periodQ = period.key === 'custom' ? { from: period.from, to: period.to } : { period: period.key };
+  const groups = [['income', 'Money in'], ['capital', 'Capital'], ['expense', 'Costs'], ['tax', 'Taxes'], ['transfer', 'Not profit/loss'], ['none', '']];
+  const catSelect = function (t) {
+    let out = '<select name="category" aria-label="Category" data-txn-category>';
+    groups.forEach(function (g) {
+      const opts = categories.filter(function (c) { return c.type === g[0]; });
+      if (!opts.length) return;
+      out += g[1] ? '<optgroup label="' + g[1] + '">' : '';
+      opts.forEach(function (c) { out += '<option value="' + c.id + '"' + (c.id === t.category ? ' selected' : '') + '>' + h.esc(c.label) + '</option>'; });
+      out += g[1] ? '</optgroup>' : '';
+    });
+    return out + '</select>';
+  };
+%>
+<div class="crumbs"><a href="/admin/finance">Finance &amp; costs</a> / Transactions</div>
+<div class="page-head">
+  <div><h1>Bank transactions</h1><div class="sub"><%= totals.n %> shown · <%= h.inr(totals.credit) %> in · <%= h.inr(totals.debit) %> out<%= uncategorized ? ' · ' + uncategorized + ' uncategorized in total' : '' %></div></div>
+  <div class="actions">
+    <a class="btn btn-ghost" href="<%= h.qs('/admin/finance/export.csv', periodQ) %>"><%- h.icon('download', 16) %> Export CSV</a>
+    <a class="btn btn-ghost" href="/admin/finance">Back to overview</a>
+  </div>
+</div>
+<%- include('../../partials/period', { periodBase: '/admin/finance/transactions', periodKeep: keep }) %>
+
+<div class="split">
+  <div class="stack">
+    <form class="row" method="get" action="/admin/finance/transactions">
+      <% Object.keys(periodQ).forEach(function (k) { %><input type="hidden" name="<%= k %>" value="<%= periodQ[k] %>"><% }) %>
+      <input type="search" name="q" value="<%= q || '' %>" placeholder="Search narration, payee, ref" style="max-width:260px" aria-label="Search">
+      <select name="category" data-autosubmit aria-label="Category" style="width:auto"><option value="">All categories</option><% categories.forEach(function (c) { %><option value="<%= c.id %>" <%= h.selected(category, c.id) %>><%= c.label %></option><% }) %></select>
+      <select name="dir" data-autosubmit aria-label="Direction" style="width:auto"><option value="">In &amp; out</option><option value="in" <%= h.selected(dir, 'in') %>>Money in</option><option value="out" <%= h.selected(dir, 'out') %>>Money out</option></select>
+      <% if (accounts.length > 1) { %><select name="account" data-autosubmit aria-label="Account" style="width:auto"><option value="">All accounts</option><% accounts.forEach(function (ac) { %><option <%= h.selected(account, ac) %>><%= ac %></option><% }) %></select><% } %>
+      <button class="btn btn-ghost btn-sm" type="submit">Filter</button>
+    </form>
+
+    <div class="card">
+      <% if (!rows.length) { %><div class="empty"><b>No transactions match</b>Try another period or filter.</div><% } else { %>
+      <div class="table-wrap"><table class="table txn-table">
+        <thead><tr><th>Date</th><th>Narration</th><th class="num">Out</th><th class="num">In</th><th>Category</th></tr></thead>
+        <tbody>
+          <% rows.forEach(function (t) { %>
+          <tr class="<%= t.category === 'uncategorized' ? 'needs-review' : '' %>" data-txn="<%= t.id %>">
+            <td class="nowrap"><%= h.date(t.txn_date) %><% if (accounts.length > 1) { %><span class="sub"><%= t.account %></span><% } %></td>
+            <td class="txn-desc">
+              <b><%= t.counterparty || '—' %></b>
+              <span class="sub" title="<%= t.description %>"><%= t.description %></span>
+              <% if (t.payment_id) { %><span class="badge tone-green mt-8">Matched to a recorded payment</span><% } %>
+              <% (t.suggest || []).forEach(function (inv) { %>
+              <form method="post" action="/admin/finance/transactions/<%= t.id %>/record" class="suggest mt-8">
+                <%- include('../../partials/csrf') %><input type="hidden" name="invoice_id" value="<%= inv.id %>">
+                <span class="small">Looks like <b><%= inv.number %></b> · <%= inv.client_name %><%= inv.segment === 'student' ? ' (student)' : '' %></span>
+                <button class="btn btn-success btn-sm" type="submit">Record payment</button>
+              </form>
+              <% }) %>
+            </td>
+            <td class="num"><%= Number(t.debit) ? h.inr(t.debit) : '' %></td>
+            <td class="num up"><%= Number(t.credit) ? h.inr(t.credit) : '' %></td>
+            <td>
+              <form method="post" action="/admin/finance/transactions/<%= t.id %>" class="txn-cat">
+                <%- include('../../partials/csrf') %>
+                <%- catSelect(t) %>
+                <details class="remember"><summary class="small">Always for…</summary>
+                  <div class="row mt-8" style="flex-wrap:nowrap"><input type="text" name="remember" value="<%= t.counterparty || '' %>" placeholder="keyword" aria-label="Keyword for a rule"><button class="btn btn-ghost btn-sm" type="submit">Save rule</button></div>
+                </details>
+                <noscript><button class="btn btn-ghost btn-sm mt-8" type="submit">Save</button></noscript>
+                <% if (t.categorized_by === 'user') { %><span class="sub">set by you</span><% } else if (t.categorized_by === 'rule') { %><span class="sub">by your rule</span><% } else if (t.categorized_by === 'match') { %><span class="sub">from payment</span><% } %>
+              </form>
+            </td>
+          </tr>
+          <% }) %>
+        </tbody>
+      </table></div>
+      <div class="pager">
+        <span><% if (hasPrev) { %><a class="btn btn-ghost btn-sm" href="<%= h.qs('/admin/finance/transactions', Object.assign({}, keep, periodQ, { page: page - 1 })) %>">← Newer</a><% } %></span>
+        <span class="muted small">Page <%= page %></span>
+        <span><% if (hasNext) { %><a class="btn btn-ghost btn-sm" href="<%= h.qs('/admin/finance/transactions', Object.assign({}, keep, periodQ, { page: page + 1 })) %>">Older →</a><% } %></span>
+      </div>
+      <% } %>
+    </div>
+  </div>
+
+  <div class="stack">
+    <section class="card">
+      <div class="card-head"><h3>Rules</h3><span class="muted"><%= rules.length %></span></div>
+      <div class="card-body">
+        <p class="muted small mt-0">When a narration contains the keyword, the transaction gets that category, on every upload. Your rules run before the built-in ones, and nothing you set by hand is ever overwritten.</p>
+        <form method="post" action="/admin/finance/rules">
+          <%- include('../../partials/csrf') %>
+          <div class="field"><label for="r-pattern">Narration contains</label><input id="r-pattern" name="pattern" type="text" placeholder="e.g. RAVI KUMAR" required></div>
+          <div class="field"><label for="r-dir">Applies to</label><select id="r-dir" name="direction"><option value="any">Money in and out</option><option value="out">Money out</option><option value="in">Money in</option></select></div>
+          <div class="field"><label for="r-cat">Category</label><select id="r-cat" name="category"><% categories.filter(function (c) { return c.id !== 'uncategorized'; }).forEach(function (c) { %><option value="<%= c.id %>"><%= c.label %></option><% }) %></select></div>
+          <button class="btn btn-block" type="submit">Add rule &amp; apply</button>
+        </form>
+      </div>
+      <% if (rules.length) { %>
+      <ul class="list">
+        <% rules.forEach(function (r) { const c = categories.find(function (x) { return x.id === r.category; }) || {}; %>
+        <li><div class="grow"><span class="title">“<%= r.pattern %>”</span><span class="meta"><%= r.direction === 'any' ? 'in & out' : 'money ' + r.direction %> → <%= c.label %></span></div>
+          <form method="post" action="/admin/finance/rules/<%= r.id %>/delete" class="inline"><%- include('../../partials/csrf') %><button class="btn btn-ghost btn-sm" type="submit" aria-label="Delete rule"><%- h.icon('trash', 15) %></button></form></li>
+        <% }) %>
+      </ul>
+      <% } %>
+    </section>
+  </div>
+</div>

@@ -1,0 +1,17 @@
+<form method="post" action="/admin/finance/import" data-bank-upload>
+  <%- include('../../partials/csrf') %>
+  <div class="field">
+    <label for="up-account">Bank account</label>
+    <input id="up-account" name="account" type="text" list="up-accounts" value="<%= accounts[0] || '' %>" placeholder="e.g. HDFC Current" required>
+    <datalist id="up-accounts"><% accounts.forEach(function (a) { %><option value="<%= a %>"><% }) %></datalist>
+    <div class="hint">Use the same name each time for the same account.</div>
+  </div>
+  <div class="field">
+    <label for="up-file">Statement (CSV)</label>
+    <input id="up-file" type="file" accept=".csv,text/csv,.txt" data-file required>
+    <div class="hint">Download it from net banking as CSV (or open the Excel export and save it as CSV). Any date range works. Lines already uploaded are skipped, so overlapping statements are fine.</div>
+  </div>
+  <details class="mb-16"><summary class="small muted">No file? Paste the CSV text instead</summary><textarea name="csv" rows="5" class="mt-8" placeholder="Date,Narration,Withdrawal,Deposit,Balance…"></textarea></details>
+  <div class="error mb-8" data-upload-error role="alert"></div>
+  <button class="btn" type="submit"><%- h.icon('upload', 16) %> Upload &amp; analyse</button>
+</form>

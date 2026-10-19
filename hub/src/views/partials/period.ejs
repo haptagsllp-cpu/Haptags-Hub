@@ -1,0 +1,15 @@
+<%# Period picker: preset tabs plus a custom range. Expects period, presets, periodBase, periodKeep (extra query params). %>
+<% const keep = locals.periodKeep || {}; %>
+<div class="period">
+  <nav class="tabs mb-0">
+    <% presets.forEach(function (p) { %><a href="<%= h.qs(periodBase, Object.assign({}, keep, { period: p[0] })) %>" class="<%= period.key === p[0] ? 'active' : '' %>"><%= p[1] %></a><% }) %>
+  </nav>
+  <form method="get" action="<%= periodBase %>" class="period-custom">
+    <% Object.keys(keep).forEach(function (k) { if (keep[k]) { %><input type="hidden" name="<%= k %>" value="<%= keep[k] %>"><% } }) %>
+    <input type="date" name="from" value="<%= period.from %>" aria-label="From">
+    <span class="muted">to</span>
+    <input type="date" name="to" value="<%= period.to %>" aria-label="To">
+    <button class="btn btn-ghost btn-sm" type="submit">Apply</button>
+  </form>
+</div>
+<p class="muted small mt-8 mb-16"><%= period.label %></p>

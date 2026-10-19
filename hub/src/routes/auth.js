@@ -11,7 +11,8 @@ const { nowSql, str } = require('../lib/util');
 
 const router = express.Router();
 
-const loginLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 12, standardHeaders: 'draft-7', legacyHeaders: false });
+// Only failed sign-ins count, so a team or college lab behind one IP isn't locked out by normal use.
+const loginLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 12, skipSuccessfulRequests: true, standardHeaders: 'draft-7', legacyHeaders: false });
 
 const safeNext = (n) => (typeof n === 'string' && n.startsWith('/') && !n.startsWith('//') ? n : null);
 

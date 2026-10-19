@@ -58,4 +58,46 @@ function columnChart(points, { height = 220, label = 'Value' } = {}) {
   return `<svg class="chart" viewBox="0 0 ${width} ${height}" role="img" aria-label="${esc(label)}" preserveAspectRatio="xMidYMid meet">${parts.join('')}</svg>`;
 }
 
-module.exports = { columnChart, niceMax };
+/**
+ * Paired column chart: two series per month (e.g. money in vs money out), side by side,
+ * with a legend. points: [{ label, tip, a, b }] in paise.
+ */
+function pairChart(points, { height = 240, label = 'Value', names = ['In', 'Out'] } = {}) {
+  const width = 720;
+  const pad = { top: 30, right: 8, bottom: 26, left: 56 };
+  const innerW = width - pad.left - pad.right;
+  const innerH = height - pad.top - pad.bottom;
+  const max = niceMax(Math.max(0, ...points.map((p) => Math.max(p.a, p.b))));
+  const band = innerW / Math.max(1, points.length);
+  const barW = Math.min(16, band * 0.32);
+  const y = (v) => pad.top + innerH - (v / max) * innerH;
+  const parts = [];
+  for (let t = 0; t <= 4; t += 1) {
+    const v = (max / 4) * t;
+    parts.push(`<line class="grid" x1="${pad.left}" x2="${width - pad.right}" y1="${y(v)}" y2="${y(v)}"/>`);
+    parts.push(`<text class="tick" x="${pad.left - 8}" y="${y(v) + 4}" text-anchor="end">${esc(formatINRCompact(v))}</text>`);
+  }
+  const bar = (x, v, cls) => {
+    const h = Math.max(0, innerH - (y(v) - pad.top));
+    if (h <= 0) return '';
+    const top = pad.top + innerH - h;
+    const r = Math.min(3, h, barW / 2);
+    return `<path class="${cls}" d="M${x},${top + h} V${top + r} Q${x},${top} ${x + r},${top} H${x + barW - r} Q${x + barW},${top} ${x + barW},${top + r} V${top + h} Z"/>`;
+  };
+  // Show every month label when they fit, otherwise every other one.
+  const every = points.length > 14 ? Math.ceil(points.length / 12) : 1;
+  points.forEach((p, i) => {
+    const cx = pad.left + band * i + band / 2;
+    parts.push(bar(cx - barW - 1, p.a, 'bar bar-a'));
+    parts.push(bar(cx + 1, p.b, 'bar bar-b'));
+    if (i % every === 0 || i === points.length - 1) parts.push(`<text class="tick" x="${cx}" y="${height - 8}" text-anchor="middle">${esc(p.label)}</text>`);
+    const tip = `${p.tip || p.label} · ${names[0]} ${formatINRShort(p.a)} · ${names[1]} ${formatINRShort(p.b)}`;
+    parts.push(`<rect class="hit" x="${pad.left + band * i}" y="${pad.top}" width="${band}" height="${innerH}" data-tip="${esc(tip)}" tabindex="0" aria-label="${esc(tip)}"/>`);
+  });
+  parts.push(`<line class="axis" x1="${pad.left}" x2="${width - pad.right}" y1="${pad.top + innerH}" y2="${pad.top + innerH}"/>`);
+  parts.push(`<rect class="bar-a" x="${pad.left}" y="6" width="10" height="10" rx="2"/><text class="tick" x="${pad.left + 16}" y="15">${esc(names[0])}</text>`);
+  parts.push(`<rect class="bar-b" x="${pad.left + 110}" y="6" width="10" height="10" rx="2"/><text class="tick" x="${pad.left + 126}" y="15">${esc(names[1])}</text>`);
+  return `<svg class="chart" viewBox="0 0 ${width} ${height}" role="img" aria-label="${esc(label)}" preserveAspectRatio="xMidYMid meet">${parts.join('')}</svg>`;
+}
+
+module.exports = { columnChart, pairChart, niceMax };

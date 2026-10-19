@@ -465,3 +465,117 @@ test('LMS daily doubt session: one meeting per course per day, students invited 
   const room = await fetch(`${base}/meet/${token}`);
   assert.equal(room.status, 200, 'students can open the room as guests');
 });
+
+test('education: programs, enrolment with instalments, student invoices and their own series', async () => {
+  const owner = new Browser();
+  await owner.login('owner@test.local', 'owner-password-1');
+  await owner.get('/admin/education/programs');
+  await owner.post('/admin/education/programs', { name: 'Web dev internship', kind: 'internship', fee: '11800', fee_includes_gst: '1', duration: '8 weeks' });
+  const program = await db('programs').where({ name: 'Web dev internship' }).first();
+  assert.equal(Number(program.fee), 1180000);
+
+  await owner.get('/admin/education/students/new');
+  let res = await owner.post('/admin/education/students', { name: 'Kiran Rao', phone: '9876543210', fee: '11800' });
+  assert.equal(res.status, 302);
+  res = await owner.post('/admin/education/students', { name: '', fee: '' });
+  assert.equal(res.status, 422, 'name and fee are required');
+  res = await owner.post('/admin/education/students', {
+    name: 'Divya N', phone: '9876500000', email: 'divya@college.test', college: 'RVCE', course: 'B.E. CSE 3rd year',
+    program_id: String(program.id), batch: 'Jan 2027', fee: '11800', installments: '2', paid_now: '7000', method: 'upi', reference: 'UPI123',
+    state: 'Karnataka',
+  });
+  const studentId = Number(res.location.split('/').pop());
+  const student = await db('clients').where({ id: studentId }).first();
+  assert.equal(student.segment, 'student');
+  const invoices = await db('invoices').where({ client_id: studentId }).orderBy('due_date');
+  assert.equal(invoices.length, 2);
+  assert.ok(invoices.every((i) => i.segment === 'student' && /^HTE\/\d\d-\d\d\/\d{4}$/.test(i.number)), 'student invoices use the HTE series');
+  assert.equal(invoices.reduce((s, i) => s + Number(i.total), 0), 1180000, 'GST-inclusive fee: totals add back to the fee');
+  assert.equal(Number(invoices[0].cgst), 45000, '₹5,900 incl. 18% = ₹5,000 + ₹450 CGST + ₹450 SGST');
+  // ₹7,000 paid now: clears instalment 1 (₹5,900) and ₹1,100 of instalment 2.
+  assert.equal(invoices[0].status, 'paid');
+  assert.equal(Number(invoices[1].amount_paid), 110000);
+  assert.equal(invoices[1].due_date > invoices[0].due_date, true);
+
+  // Students stay out of the business client list but show under Education.
+  assert.match((await owner.get(`/admin/education/students/${studentId}`)).text, /instalment 2 of 2/);
+  assert.doesNotMatch((await owner.get('/admin/clients')).text, /Divya N/);
+  assert.equal((await owner.get(`/admin/clients/${studentId}`)).location, `/admin/education/students/${studentId}`);
+  const list = await owner.get('/admin/education/students?status=due');
+  assert.match(list.text, /Divya N/);
+  const overview = await owner.get('/admin/education?period=all');
+  assert.equal(overview.status, 200);
+  assert.match(overview.text, /Web dev internship/);
+  assert.match((await owner.get('/admin/education/students.csv')).text, /Divya N/);
+});
+
+test('finance: bank statement import, dedupe, categories, matching and the CEO view', async () => {
+  const owner = new Browser();
+  await owner.login('owner@test.local', 'owner-password-1');
+  // A student payment already recorded in the Hub, to be matched from the statement.
+  const pay = await db('payments as p').join('invoices as i', 'i.id', 'p.invoice_id').where('i.segment', 'student').select('p.*').first();
+  const d = pay.paid_on;
+  const dmy = `${d.slice(8, 10)}/${d.slice(5, 7)}/${d.slice(2, 4)}`;
+  const csv = [
+    'HDFC BANK Ltd.,,,,,,',
+    'Statement From : 01/04/26 To : 30/04/26,,,,,,',
+    ',,,,,,',
+    'Date,Narration,Chq./Ref.No.,Value Dt,Withdrawal Amt.,Deposit Amt.,Closing Balance',
+    `01/04/26,OPENING CREDIT FROM PARTNER CAPITAL,,01/04/26,,"1,00,000.00","1,00,000.00"`,
+    `02/04/26,UPI-RAVI KUMAR-ravi@okaxis-SALARY APR,0000412345,02/04/26,"25,000.00",,"75,000.00"`,
+    `03/04/26,POS 4123 HOSTINGER INDIA,1234,03/04/26,"2,499.00",,"72,501.00"`,
+    `04/04/26,ACH D- GOOGLE ADS INDIA,99,04/04/26,"5,000.00",,"67,501.00"`,
+    `05/04/26,GST CHARGES ON SMS ALERT,,05/04/26,17.70,,"67,483.30"`,
+    `${dmy},UPI-DIVYA N-divya@oksbi-FEES,8812,${dmy},,"${(Number(pay.amount) / 100).toFixed(2)}","${(67483.30 + Number(pay.amount) / 100).toFixed(2)}"`,
+    `28/04/26,NEFT CR-ICIC0000001-ACME CORP-MISC,N123,28/04/26,,"20,000.00","${(87483.30 + Number(pay.amount) / 100).toFixed(2)}"`,
+    ',,,,Total,,',
+  ].join('\r\n');
+  await owner.get('/admin/finance');
+  const upload = (body) => fetch(`${base}/admin/finance/import`, {
+    method: 'POST', body, redirect: 'manual',
+    headers: { cookie: owner.header(), 'content-type': 'text/csv', accept: 'application/json', 'x-csrf-token': owner.csrf, 'x-account': 'HDFC Current', 'x-file-name': 'apr.csv' },
+  });
+  let r = await upload(csv);
+  let j = await r.json();
+  assert.equal(r.status, 200, j.error);
+  assert.equal(j.added, 7);
+  assert.equal(j.matched, 1, 'the student fee credit matches the recorded payment');
+  r = await upload(csv);
+  j = await r.json();
+  assert.equal(j.added, 0);
+  assert.equal(j.duplicates, 7, 're-uploading the same statement adds nothing');
+
+  const cat = async (like) => (await db('bank_txns').where('description', 'like', `%${like}%`).first()).category;
+  assert.equal(await cat('SALARY'), 'salaries');
+  assert.equal(await cat('HOSTINGER'), 'hosting');
+  assert.equal(await cat('GOOGLE ADS'), 'marketing');
+  assert.equal(await cat('SMS ALERT'), 'bank_charges');
+  assert.equal(await cat('DIVYA'), 'student_fees');
+  assert.equal(await cat('ACME'), 'uncategorized');
+
+  // Teach it: Acme is a client; the partner capital isn't revenue.
+  const acme = await db('bank_txns').where('description', 'like', '%ACME%').first();
+  await owner.post(`/admin/finance/transactions/${acme.id}`, { category: 'client_payments' });
+  assert.equal(await cat('ACME'), 'client_payments');
+  await owner.post('/admin/finance/rules', { pattern: 'PARTNER CAPITAL', direction: 'in', category: 'capital_in' });
+  assert.equal(await cat('PARTNER CAPITAL'), 'capital_in');
+
+  const { analyse } = require('../src/lib/finance');
+  const a = await analyse('2026-04-01', '2026-04-30');
+  assert.equal(a.opening, 0);
+  assert.equal(a.capital, 10000000, 'capital is not revenue');
+  assert.equal(a.opex, 2500000 + 249900 + 500000 + 1770);
+  assert.equal(a.costs[0].id, 'salaries');
+  assert.ok(a.ratios.opexToRevenue > 0);
+
+  const page = await owner.get('/admin/finance?from=2026-04-01&to=2026-04-30');
+  assert.equal(page.status, 200);
+  assert.match(page.text, /Salaries &amp; stipends/);
+  assert.match((await owner.get('/admin/finance/transactions?period=all')).text, /Ravi Kumar/);
+  assert.match((await owner.get('/admin/finance/export.csv?period=all')).text, /Hosting, domains & cloud/);
+
+  // Finance is for owners and admins only.
+  const staff = await staffUser('Sam Staff', 'sam@test.local');
+  assert.equal((await staff.b.get('/admin/finance')).status, 403);
+  assert.equal((await staff.b.get('/admin/education')).status, 200, 'the team can still enrol students');
+});

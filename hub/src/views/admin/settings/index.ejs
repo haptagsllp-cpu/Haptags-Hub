@@ -47,6 +47,15 @@
     <%- f('invoice_terms', 'Default invoice terms', { textarea: true, full: true }) %>
     <%- f('quote_terms', 'Default quotation terms', { textarea: true, full: true }) %>
   </div>
+  <h3 class="mt-16">Student &amp; internship invoices</h3>
+  <p class="muted small mt-0">Education fees use their own number series, so client and student billing stay separate.</p>
+  <div class="form-grid">
+    <%- f('edu_invoice_prefix', 'Student invoice prefix', { mono: true, hint: 'Numbers look like ' + h.esc(s.edu_invoice_prefix) + '/26-27/0001. Must differ from the client prefix.' }) %>
+    <%- f('edu_sac', 'SAC code', { mono: true, hint: '999293 = commercial training and coaching. Confirm with your CA.' }) %>
+    <%- f('edu_gst_rate', 'GST rate (%)', { type: 'number' }) %>
+    <%- f('edu_due_days', 'Due in (days)', { type: 'number' }) %>
+    <%- f('edu_terms', 'Student invoice terms', { textarea: true, full: true }) %>
+  </div>
   <button class="btn" type="submit">Save</button>
 </form>
 <% } else if (tab === 'payments') { %>

@@ -169,3 +169,26 @@ dialog.modal::backdrop { background: rgba(2, 33, 61, .45); }
   .cal-item { font-size: 0; padding: 0; height: 6px; border-left-width: 0; border-radius: 3px; }
   .cal-item b { display: none; }
 }
+
+/* ---------- Education & finance ---------- */
+.period { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.period-custom { display: flex; align-items: center; gap: 8px; }
+.period-custom input[type=date] { width: auto; padding: 6px 10px; font-size: 13.5px; }
+.chart .bar-a { fill: var(--blue); }
+.chart .bar-b { fill: #f08c4a; }
+.txn-table td { vertical-align: top; }
+.txn-desc { max-width: 460px; }
+.txn-desc .sub { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 440px; }
+.txn-table tr.needs-review td { background: #fffbeb; }
+.txn-cat { min-width: 210px; }
+.txn-cat select { padding: 6px 8px; font-size: 13px; }
+.txn-cat select.saved { border-color: var(--green); box-shadow: 0 0 0 3px rgba(21, 128, 61, .2); }
+.txn-cat .remember summary { cursor: pointer; color: var(--text-3); margin-top: 4px; }
+.txn-cat .remember input { padding: 5px 8px; font-size: 13px; }
+.suggest { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 6px 8px; border-radius: 8px; background: var(--green-bg); }
+.filters input[type=search] { background: var(--surface); }
+@media (max-width: 860px) {
+  .period-custom { width: 100%; flex-wrap: wrap; }
+  .period-custom input[type=date] { flex: 1; min-width: 130px; }
+  .txn-desc, .txn-desc .sub { max-width: 220px; }
+}

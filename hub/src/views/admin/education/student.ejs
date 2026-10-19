@@ -1,0 +1,95 @@
+<%
+  const first = st.name.split(' ')[0];
+  const wa = next ? h.waLink(st.phone, 'Hi ' + first + ', here is your fee invoice ' + next.number + ' for ' + (next.title || 'your program') + ': ' + h.inr(Number(next.total) - Number(next.amount_paid)) + ' due by ' + h.date(next.due_date) + '. Pay by UPI or card here: ' + next.link) : h.waLink(st.phone, 'Hi ' + first + ', ');
+%>
+<div class="crumbs"><a href="/admin/education">Education</a> / <a href="/admin/education/students">Students</a> / <%= st.name %></div>
+<div class="page-head">
+  <div>
+    <h1><%= st.name %></h1>
+    <div class="sub"><%= [st.program_name, st.batch, st.college].filter(Boolean).join(' · ') || 'Student' %></div>
+  </div>
+  <div class="actions">
+    <% if (wa) { %><a class="btn btn-wa" href="<%= wa %>" target="_blank" rel="noopener"><%- h.icon('whatsapp', 16) %> <%= next ? 'Send invoice on WhatsApp' : 'WhatsApp' %></a><% } %>
+    <a class="btn btn-ghost" href="/admin/education/students/<%= st.id %>/edit"><%- h.icon('edit', 16) %> Edit</a>
+  </div>
+</div>
+
+<div class="stats">
+  <div class="stat"><div class="label">Total fee</div><div class="value"><%= h.inr(totals.billed) %></div></div>
+  <div class="stat"><div class="label">Paid</div><div class="value"><%= h.inr(totals.paid) %></div></div>
+  <div class="stat <%= totals.due > 0 ? '' : '' %>"><div class="label">Balance due</div><div class="value <%= totals.due > 0 ? 'down' : 'up' %>"><%= totals.due > 0 ? h.inr(totals.due) : 'Fully paid' %></div><% if (next) { %><div class="delta">Next due <%= h.date(next.due_date) %></div><% } %></div>
+</div>
+
+<div class="split">
+  <div class="stack">
+    <section class="card">
+      <div class="card-head"><h3>Fee invoices</h3><span class="muted"><%= invoices.length %></span></div>
+      <% if (!invoices.length) { %><div class="empty">No invoices yet.</div><% } else { %>
+      <div class="table-wrap"><table class="table">
+        <thead><tr><th>Invoice</th><th>For</th><th>Due</th><th class="num">Amount</th><th class="num">Paid</th><th>Status</th><th></th></tr></thead>
+        <tbody>
+          <% invoices.forEach(function (i) { %>
+          <tr>
+            <td><a class="strong" href="/admin/invoices/<%= i.id %>"><%= i.number || 'Draft' %></a></td>
+            <td><%= i.title || '—' %></td>
+            <td class="nowrap"><%= h.date(i.due_date) %></td>
+            <td class="num"><%= h.inr(i.total) %></td>
+            <td class="num"><%= h.inr(i.amount_paid) %></td>
+            <td><%- h.badge(i.status) %></td>
+            <td class="nowrap"><% if (i.status !== 'draft' && i.status !== 'void') { %><button class="btn btn-ghost btn-sm" type="button" data-copy-text="<%= i.link %>" title="Copy payment link"><%- h.icon('link', 15) %></button><% } %></td>
+          </tr>
+          <% }) %>
+        </tbody>
+      </table></div>
+      <% } %>
+    </section>
+
+    <section class="card">
+      <div class="card-head"><h3>Payments</h3></div>
+      <% if (!payments.length) { %><div class="empty">No payments yet. Record one from the invoice, or the student pays online with the link.</div><% } else { %>
+      <ul class="list">
+        <% payments.forEach(function (p) { %>
+        <li><div class="grow"><span class="title"><%= h.inr(p.amount) %> · <%= h.method(p.method) %></span><span class="meta"><%= h.date(p.paid_on) %> · <%= p.invoice_number %><%= p.reference ? ' · ref ' + p.reference : '' %></span></div><%- h.badge(p.status) %></li>
+        <% }) %>
+      </ul><% } %>
+    </section>
+
+    <form method="post" action="/admin/education/students/<%= st.id %>/invoice" class="card card-pad">
+      <%- include('../../partials/csrf') %>
+      <h3>Add another fee</h3>
+      <p class="muted small mt-0">For an extension, a second module or a certificate fee. Amount is what the student pays<%= settings.gstin ? ', including GST' : '' %>.</p>
+      <div class="form-grid">
+        <div class="field full"><label for="inv-desc">Description</label><input id="inv-desc" name="description" type="text" placeholder="e.g. Internship extension – 1 month"></div>
+        <div class="field"><label for="inv-amt">Amount (₹)</label><input id="inv-amt" name="amount" type="number" min="1" step="1"></div>
+        <div class="field"><label for="inv-due">Due date</label><input id="inv-due" name="due_date" type="date"></div>
+      </div>
+      <div class="row"><label class="check small"><input type="checkbox" name="send_email" value="1" <%= st.email ? 'checked' : 'disabled' %>> Email it to the student</label><span style="flex:1"></span><button class="btn" type="submit">Create invoice</button></div>
+    </form>
+  </div>
+
+  <div class="stack">
+    <section class="card">
+      <div class="card-head"><h3>Details</h3></div>
+      <div class="card-body">
+        <dl class="dl">
+          <dt>Phone</dt><dd><%= st.phone || '—' %></dd>
+          <dt>Email</dt><dd><%= st.email || '—' %></dd>
+          <dt>College</dt><dd><%= st.college || '—' %></dd>
+          <dt>Course</dt><dd><%= st.course || '—' %></dd>
+          <dt>Program</dt><dd><%= st.program_name || '—' %></dd>
+          <dt>Batch</dt><dd><%= st.batch || '—' %></dd>
+          <dt>Starts</dt><dd><%= st.start_date ? h.date(st.start_date) : '—' %></dd>
+          <dt>State</dt><dd><%= st.state || '—' %></dd>
+          <dt>Enrolled</dt><dd><%= h.dateTime(st.created_at) %></dd>
+        </dl>
+        <% if (st.notes) { %><hr><div class="prose small"><%- h.nl2br(st.notes) %></div><% } %>
+      </div>
+    </section>
+    <% if (activities.length) { %>
+    <section class="card">
+      <div class="card-head"><h3>History</h3></div>
+      <div class="card-body"><%- include('../../partials/timeline', { activities: activities }) %></div>
+    </section>
+    <% } %>
+  </div>
+</div>

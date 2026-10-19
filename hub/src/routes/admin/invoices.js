@@ -149,9 +149,11 @@ router.post('/:id', async (req, res, next) => {
     });
   }
   const totals = computeTotals(items, { taxMode: data.tax_mode, gstRate: data.gst_rate, discount: data.discount });
+  const client = await db('clients').where({ id: data.client_id }).first();
   await db.transaction(async (trx) => {
     await trx('invoices').where({ id: inv.id }).update({
-      client_id: data.client_id, project_id: data.project_id, title: data.title, issue_date: data.issue_date, due_date: data.due_date,
+      client_id: data.client_id, segment: client && client.segment === 'student' ? 'student' : 'business',
+      project_id: data.project_id, title: data.title, issue_date: data.issue_date, due_date: data.due_date,
       tax_mode: data.tax_mode, gst_rate: data.gst_rate, place_of_supply: await placeOfSupply(data.client_id),
       subtotal: totals.subtotal, discount: totals.discount, cgst: totals.cgst, sgst: totals.sgst, igst: totals.igst, total: totals.total,
       notes: data.notes, terms: data.terms, updated_at: nowSql(),

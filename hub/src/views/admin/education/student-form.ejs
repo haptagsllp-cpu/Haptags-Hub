@@ -1,0 +1,44 @@
+<div class="crumbs"><a href="/admin/education">Education</a> / <a href="/admin/education/students">Students</a> / New</div>
+<div class="page-head"><div><h1>Enrol a student</h1><div class="sub">Creates the student, their fee invoice<%= settings.gstin ? ' (GST included in the fee)' : '' %>, and records any payment taken now.</div></div></div>
+<form method="post" action="/admin/education/students" class="card card-pad" style="max-width:900px" novalidate data-enrol>
+  <%- include('../../partials/csrf') %>
+  <h3>Student</h3>
+  <div class="form-grid">
+    <div class="field"><label for="name">Full name *</label><input id="name" name="name" type="text" value="<%= form.name || '' %>" <%- errors.name ? 'aria-invalid="true"' : '' %> autofocus><% if (errors.name) { %><div class="error"><%= errors.name %></div><% } %></div>
+    <div class="field"><label for="phone">Phone (WhatsApp)</label><input id="phone" name="phone" type="tel" value="<%= form.phone || '' %>" <%- errors.phone ? 'aria-invalid="true"' : '' %>><% if (errors.phone) { %><div class="error"><%= errors.phone %></div><% } %></div>
+    <div class="field"><label for="email">Email</label><input id="email" name="email" type="email" value="<%= form.email || '' %>" <%- errors.email ? 'aria-invalid="true"' : '' %>><% if (errors.email) { %><div class="error"><%= errors.email %></div><% } %><div class="hint">The invoice and receipts go here.</div></div>
+    <div class="field"><label for="college">College</label><input id="college" name="college" type="text" value="<%= form.college || '' %>" placeholder="e.g. RV College of Engineering"></div>
+    <div class="field"><label for="course">Course / year</label><input id="course" name="course" type="text" value="<%= form.course || '' %>" placeholder="e.g. B.E. CSE, 3rd year"></div>
+    <div class="field"><label for="state">State</label><select id="state" name="state"><% states.forEach(function (st) { %><option <%= h.selected(form.state, st[1]) %>><%= st[1] %></option><% }) %></select><div class="hint">Decides CGST+SGST or IGST.</div></div>
+  </div>
+
+  <h3 class="mt-16">Program &amp; fee</h3>
+  <div class="form-grid">
+    <div class="field"><label for="program_id">Program</label>
+      <select id="program_id" name="program_id">
+        <option value="" data-fee="">— Other (describe below) —</option>
+        <% programs.forEach(function (p) { %><option value="<%= p.id %>" data-fee="<%= Number(p.fee) / 100 %>" <%= h.selected(form.program_id, p.id) %>><%= p.name %> · <%= h.inr(p.fee) %></option><% }) %>
+      </select>
+      <% if (!programs.length) { %><div class="hint"><a href="/admin/education/programs">Add your programs</a> to fill fees in one click.</div><% } %>
+    </div>
+    <div class="field" data-show-when="#program_id="><label for="description">What is the fee for?</label><input id="description" name="description" type="text" value="<%= form.description || '' %>" placeholder="e.g. Summer internship – Web development"></div>
+    <div class="field"><label for="batch">Batch</label><input id="batch" name="batch" type="text" value="<%= form.batch || '' %>" placeholder="e.g. Jan 2027"></div>
+    <div class="field"><label for="start_date">Start date</label><input id="start_date" name="start_date" type="date" value="<%= form.start_date || '' %>"></div>
+    <div class="field"><label for="fee">Fee (₹) *</label><input id="fee" name="fee" type="number" min="0" step="1" value="<%= form.fee || '' %>" <%- errors.fee ? 'aria-invalid="true"' : '' %>><% if (errors.fee) { %><div class="error"><%= errors.fee %></div><% } %><div class="hint">What the student pays<%= settings.gstin ? ', including GST' : '' %>.</div></div>
+    <div class="field"><label for="discount">Discount / scholarship (₹)</label><input id="discount" name="discount" type="number" min="0" step="1" value="<%= form.discount || '' %>"></div>
+    <div class="field"><label for="installments">Pay in</label>
+      <select id="installments" name="installments"><% [1, 2, 3, 4, 6].forEach(function (n) { %><option value="<%= n %>" <%= h.selected(form.installments, n) %>><%= n === 1 ? 'One payment' : n + ' monthly instalments' %></option><% }) %></select>
+    </div>
+    <div class="field"><label for="first_due">First payment due</label><input id="first_due" name="first_due" type="date" value="<%= form.first_due || '' %>"></div>
+  </div>
+
+  <h3 class="mt-16">Payment taken now <span class="muted small">(optional)</span></h3>
+  <div class="form-grid">
+    <div class="field"><label for="paid_now">Amount received (₹)</label><input id="paid_now" name="paid_now" type="number" min="0" step="1" value="<%= form.paid_now || '' %>" <%- errors.paid_now ? 'aria-invalid="true"' : '' %>><% if (errors.paid_now) { %><div class="error"><%= errors.paid_now %></div><% } %></div>
+    <div class="field"><label for="method">Method</label><select id="method" name="method"><% methods.forEach(function (m) { %><option value="<%= m[0] %>" <%= h.selected(form.method, m[0]) %>><%= m[1] %></option><% }) %></select></div>
+    <div class="field full"><label for="reference">UTR / reference</label><input id="reference" name="reference" type="text" value="<%= form.reference || '' %>" placeholder="UPI transaction ID or receipt number"></div>
+    <div class="field full"><label class="check"><input type="checkbox" name="send_email" value="1" <%= h.checked(form.send_email) %>> Email the invoice to the student</label></div>
+  </div>
+  <p class="muted small" data-enrol-summary></p>
+  <div class="form-actions"><button class="btn" type="submit">Enrol &amp; create invoice</button><a class="btn btn-ghost" href="/admin/education/students">Cancel</a></div>
+</form>

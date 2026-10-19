@@ -1,0 +1,19 @@
+<div class="crumbs"><a href="/admin/education/students">Students</a> / <a href="/admin/education/students/<%= form.id %>"><%= form.name %></a> / Edit</div>
+<div class="page-head"><h1>Edit student</h1></div>
+<form method="post" action="/admin/education/students/<%= form.id %>" class="card card-pad" style="max-width:900px" novalidate>
+  <%- include('../../partials/csrf') %>
+  <div class="form-grid">
+    <div class="field"><label for="name">Full name *</label><input id="name" name="name" type="text" value="<%= form.name || '' %>" <%- errors.name ? 'aria-invalid="true"' : '' %>><% if (errors.name) { %><div class="error"><%= errors.name %></div><% } %></div>
+    <div class="field"><label for="phone">Phone</label><input id="phone" name="phone" type="tel" value="<%= form.phone || '' %>" <%- errors.phone ? 'aria-invalid="true"' : '' %>><% if (errors.phone) { %><div class="error"><%= errors.phone %></div><% } %></div>
+    <div class="field"><label for="email">Email</label><input id="email" name="email" type="email" value="<%= form.email || '' %>" <%- errors.email ? 'aria-invalid="true"' : '' %>><% if (errors.email) { %><div class="error"><%= errors.email %></div><% } %></div>
+    <div class="field"><label for="college">College</label><input id="college" name="college" type="text" value="<%= form.college || '' %>"></div>
+    <div class="field"><label for="course">Course / year</label><input id="course" name="course" type="text" value="<%= form.course || '' %>"></div>
+    <div class="field"><label for="program_id">Program</label><select id="program_id" name="program_id"><option value="">—</option><% programs.forEach(function (p) { %><option value="<%= p.id %>" <%= h.selected(form.program_id, p.id) %>><%= p.name %></option><% }) %></select></div>
+    <div class="field"><label for="batch">Batch</label><input id="batch" name="batch" type="text" value="<%= form.batch || '' %>"></div>
+    <div class="field"><label for="start_date">Start date</label><input id="start_date" name="start_date" type="date" value="<%= form.start_date ? String(form.start_date).slice(0, 10) : '' %>"></div>
+    <div class="field"><label for="state">State</label><select id="state" name="state"><% states.forEach(function (st) { %><option <%= h.selected(form.state, st[1]) %>><%= st[1] %></option><% }) %></select></div>
+    <div class="field"><label for="status">Status</label><select id="status" name="status"><option value="active" <%= h.selected(form.status, 'active') %>>Active</option><option value="inactive" <%= h.selected(form.status, 'inactive') %>>Completed / left</option></select></div>
+    <div class="field full"><label for="notes">Notes</label><textarea id="notes" name="notes" rows="3"><%= form.notes || '' %></textarea></div>
+  </div>
+  <div class="form-actions"><button class="btn" type="submit">Save</button><a class="btn btn-ghost" href="/admin/education/students/<%= form.id %>">Cancel</a></div>
+</form>

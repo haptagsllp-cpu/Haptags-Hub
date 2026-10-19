@@ -1,0 +1,33 @@
+<%- include('_nav') %>
+<form class="filters row mb-16" method="get" action="/admin/education/students">
+  <input type="search" name="q" value="<%= q || '' %>" placeholder="Name, phone, email or college" style="max-width:280px" aria-label="Search students">
+  <select name="program" data-autosubmit aria-label="Program" style="width:auto"><option value="">All programs</option><% programs.forEach(function (p) { %><option value="<%= p.id %>" <%= h.selected(programId, p.id) %>><%= p.name %></option><% }) %></select>
+  <select name="batch" data-autosubmit aria-label="Batch" style="width:auto"><option value="">All batches</option><% batches.forEach(function (b) { %><option <%= h.selected(batch, b) %>><%= b %></option><% }) %></select>
+  <select name="status" data-autosubmit aria-label="Fee status" style="width:auto">
+    <option value="">Any fee status</option><option value="due" <%= h.selected(status, 'due') %>>Fees due</option><option value="overdue" <%= h.selected(status, 'overdue') %>>Overdue</option><option value="paid" <%= h.selected(status, 'paid') %>>Fully paid</option>
+  </select>
+  <button class="btn btn-ghost btn-sm" type="submit">Filter</button>
+  <span class="spacer" style="flex:1"></span>
+  <a class="btn btn-ghost btn-sm" href="/admin/education/students.csv"><%- h.icon('download', 15) %> Export CSV</a>
+</form>
+<div class="card">
+  <% if (!rows.length) { %><div class="empty"><%- h.icon('education', 30) %><b>No students here yet</b><a href="/admin/education/students/new">Enrol a student</a>: it creates their invoice and records any payment taken.</div><% } else { %>
+  <div class="table-wrap"><table class="table">
+    <thead><tr><th>Student</th><th>Program</th><th>College</th><th class="num">Fee</th><th class="num">Paid</th><th class="num">Due</th><th>Status</th></tr></thead>
+    <tbody>
+      <% rows.forEach(function (s) { const b = bal[s.id] || { billed: 0, paid: 0, due: 0 }; %>
+      <tr>
+        <td><a class="strong" href="/admin/education/students/<%= s.id %>"><%= s.name %></a><span class="sub"><%= s.phone || s.email || '' %></span></td>
+        <td><%= s.program_name || '—' %><% if (s.batch) { %><span class="sub"><%= s.batch %></span><% } %></td>
+        <td><%= s.college || '—' %><% if (s.course) { %><span class="sub"><%= s.course %></span><% } %></td>
+        <td class="num"><%= h.inr(b.billed) %></td>
+        <td class="num"><%= h.inr(b.paid) %></td>
+        <td class="num"><%= b.due > 0 ? h.inr(b.due) : '—' %><% if (b.nextDue && b.due > 0) { %><span class="sub">next <%= h.date(b.nextDue) %></span><% } %></td>
+        <td><%- b.overdue ? h.badge('overdue') : b.due > 0 ? h.badge('partially_paid', b.paid > 0 ? 'Part paid' : 'Due') : b.billed > 0 ? h.badge('paid') : h.badge('draft', 'No invoice') %></td>
+      </tr>
+      <% }) %>
+    </tbody>
+  </table></div>
+  <%- include('../../partials/pager', { pagerBase: '/admin/education/students', pagerQuery: { q: q, program: programId || '', batch: batch, status: status } }) %>
+  <% } %>
+</div>

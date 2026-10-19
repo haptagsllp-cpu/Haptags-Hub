@@ -1,0 +1,179 @@
+<%
+  const pct = function (v) { return v === null || v === undefined ? '—' : v + '%'; };
+  const maxCost = Math.max(1, ...a.costs.map(function (c) { return c.amount; }));
+  const q = { period: period.key === 'custom' ? '' : period.key, from: period.key === 'custom' ? period.from : '', to: period.key === 'custom' ? period.to : '' };
+%>
+<div class="page-head">
+  <div>
+    <h1>Finance &amp; costs</h1>
+    <div class="sub">Cash in and out from your bank statements, cost ratios, and billing vs collections.</div>
+  </div>
+  <div class="actions">
+    <% if (range) { %>
+    <a class="btn btn-ghost" href="<%= h.qs('/admin/finance/transactions', q) %>"><%- h.icon('finance', 16) %> Transactions</a>
+    <a class="btn btn-ghost" href="<%= h.qs('/admin/finance/export.csv', q) %>"><%- h.icon('download', 16) %> Export for CA</a>
+    <button class="btn" type="button" data-dialog="#upload"><%- h.icon('upload', 16) %> Upload statement</button>
+    <% } %>
+  </div>
+</div>
+
+<% if (!range) { %>
+<div class="split">
+  <section class="card card-pad">
+    <h2>Start with a bank statement</h2>
+    <p class="muted">Upload a CSV statement from your bank, covering from when the company started to today if you can. Every transaction is put into a category (salaries, ads, hosting, software, GST and more). You can correct any, and teach rules so it learns.</p>
+    <%- include('_upload') %>
+  </section>
+  <section class="card card-pad">
+    <h3>What you’ll get</h3>
+    <ul class="small" style="padding-left:18px;margin:0;line-height:1.9">
+      <li>Money in vs money out, month by month</li>
+      <li>Every cost as a % of total spend and of revenue</li>
+      <li>Net profit, margin, monthly burn and runway</li>
+      <li>Client vs student revenue, billed vs collected</li>
+      <li>GST charged on invoices vs GST paid</li>
+      <li>Top vendors and top payers</li>
+      <li>A clean categorised CSV for your CA</li>
+    </ul>
+  </section>
+</div>
+<% } else { %>
+<%- include('../../partials/period', { periodBase: '/admin/finance' }) %>
+
+<% if (a.uncategorized.count) { %>
+<div class="news-banner">
+  <%- h.icon('alert', 20) %>
+  <div class="grow"><b><%= a.uncategorized.count %> transaction<%= a.uncategorized.count === 1 ? '' : 's' %> need a category</b><div class="news-body"><%= h.inr(a.uncategorized.in) %> in and <%= h.inr(a.uncategorized.out) %> out are counted as revenue and cost until you review them.</div></div>
+  <a class="btn btn-sm" href="<%= h.qs('/admin/finance/transactions', Object.assign({}, q, { category: 'uncategorized' })) %>">Review now</a>
+</div>
+<% } %>
+
+<div class="stats">
+  <div class="stat hero-stat">
+    <div class="label">Net cash profit</div>
+    <div class="value"><%= h.inrShort(a.net) %></div>
+    <div class="delta"><% if (a.ratios.netMargin !== null) { %><b class="<%= a.net >= 0 ? 'up' : 'down' %>"><%= a.ratios.netMargin %>%</b> net margin<% } else { %>No revenue in this period<% } %></div>
+  </div>
+  <div class="stat">
+    <div class="label">Revenue (money in)</div>
+    <div class="value"><%= h.inrShort(a.revenue) %></div>
+    <div class="delta"><%= a.income.length ? a.income.slice(0, 2).map(function (i) { return i.label.split(' ')[0] + ' ' + pct(i.share); }).join(' · ') : '—' %></div>
+  </div>
+  <div class="stat">
+    <div class="label">Operating costs</div>
+    <div class="value"><%= h.inrShort(a.opex) %></div>
+    <div class="delta"><b><%= pct(a.ratios.opexToRevenue) %></b> of revenue · taxes <%= h.inrShort(a.taxes) %></div>
+  </div>
+  <div class="stat">
+    <div class="label">Bank balance</div>
+    <div class="value"><%= a.closing === null ? '—' : h.inrShort(a.closing) %></div>
+    <div class="delta"><% if (a.opening !== null) { %>from <%= h.inrShort(a.opening) %> at the start<% } %><% if (a.runway !== null) { %> · <b class="down"><%= a.runway %> months</b> runway<% } else if (a.avgNet >= 0 && a.closing !== null) { %> · cash-positive<% } %></div>
+  </div>
+  <div class="stat">
+    <div class="label">Monthly spend (avg)</div>
+    <div class="value"><%= h.inrShort(a.avgSpend) %></div>
+    <div class="delta">Costs + taxes · net <%= h.inrShort(a.avgNet) %>/month</div>
+  </div>
+</div>
+
+<div class="split">
+  <div class="stack">
+    <section class="card">
+      <div class="card-head"><h2>Money in vs money out</h2><span class="muted"><%= a.count %> transactions</span></div>
+      <div class="card-body"><div class="chart-scroll"><%- chart %></div>
+        <details class="table-view"><summary>Show as table</summary>
+          <div class="table-wrap mt-8"><table class="table"><thead><tr><th>Month</th><th class="num">In</th><th class="num">Out</th><th class="num">Net</th></tr></thead><tbody>
+            <% a.months.forEach(function (m) { %><tr><td><%= m.key %></td><td class="num"><%= h.inr(m.income) %></td><td class="num"><%= h.inr(m.expense) %></td><td class="num <%= m.income - m.expense >= 0 ? 'up' : 'down' %>"><%= h.inr(m.income - m.expense) %></td></tr><% }) %>
+          </tbody></table></div>
+        </details>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-head"><h2>Cost analysis</h2><span class="muted">Spend <%= h.inr(a.spend) %> · <%= pct(a.ratios.spendToRevenue) %> of revenue</span></div>
+      <% if (!a.costs.length) { %><div class="empty">No costs in this period.</div><% } else { %>
+      <div class="table-wrap"><table class="table">
+        <thead><tr><th>Category</th><th class="num">Amount</th><th>Share of spend</th><th class="num">% of revenue</th><th class="num">Per month</th></tr></thead>
+        <tbody>
+          <% a.costs.forEach(function (c) { %>
+          <tr>
+            <td><a class="strong" href="<%= h.qs('/admin/finance/transactions', Object.assign({}, q, { category: c.id })) %>"><%= c.label %></a><span class="sub"><%= c.n %> transaction<%= c.n === 1 ? '' : 's' %><%= c.type === 'tax' ? ' · tax' : '' %></span></td>
+            <td class="num"><%= h.inr(c.amount) %></td>
+            <td style="min-width:150px"><div class="row" style="flex-wrap:nowrap"><div class="meter" style="flex:1" role="img" aria-label="<%= pct(c.ofSpend) %> of spend"><span style="width:<%= Math.round(c.amount / maxCost * 100) %>%"></span></div><span class="small nowrap"><%= pct(c.ofSpend) %></span></div></td>
+            <td class="num"><%= pct(c.ofRevenue) %></td>
+            <td class="num"><%= h.inrShort(c.monthly) %></td>
+          </tr>
+          <% }) %>
+        </tbody>
+      </table></div>
+      <% } %>
+    </section>
+
+    <div class="grid grid-2">
+      <section class="card">
+        <div class="card-head"><h3>Biggest payees</h3></div>
+        <% if (!a.payees.length) { %><div class="empty">—</div><% } else { %>
+        <ul class="list"><% a.payees.forEach(function (p) { %><li><span class="grow title"><%= p.name %></span><span><%= h.inrShort(p.amount) %></span></li><% }) %></ul><% } %>
+      </section>
+      <section class="card">
+        <div class="card-head"><h3>Biggest payers</h3></div>
+        <% if (!a.payers.length) { %><div class="empty">—</div><% } else { %>
+        <ul class="list"><% a.payers.forEach(function (p) { %><li><span class="grow title"><%= p.name %></span><span><%= h.inrShort(p.amount) %></span></li><% }) %></ul><% } %>
+      </section>
+    </div>
+  </div>
+
+  <div class="stack">
+    <section class="card">
+      <div class="card-head"><h3>Billing &amp; collections</h3><span class="muted">From the Hub</span></div>
+      <div class="card-body">
+        <dl class="dl">
+          <dt>Billed</dt><dd><b><%= h.inr(a.billing.billedTotal) %></b></dd>
+          <dt>· Clients</dt><dd><%= h.inr(a.billing.billed.business.amount) %> <span class="muted">(<%= a.billing.billed.business.n %> invoices)</span></dd>
+          <dt>· Students</dt><dd><%= h.inr(a.billing.billed.student.amount) %> <span class="muted">(<%= a.billing.billed.student.n %> invoices)</span></dd>
+          <dt>Collected</dt><dd><b><%= h.inr(a.billing.collectedTotal) %></b></dd>
+          <dt>Collection rate</dt><dd><%= pct(a.billing.efficiency) %></dd>
+          <dt>Outstanding now</dt><dd><%= h.inr(a.billing.outstandingTotal) %></dd>
+          <dt>GST charged</dt><dd><%= h.inr(a.billing.gstCharged) %></dd>
+          <dt>GST paid (bank)</dt><dd><%= h.inr(a.billing.gstPaid) %></dd>
+        </dl>
+        <% if (a.revenue && a.billing.collectedTotal) { %><p class="muted small mt-16 mb-0">Collections recorded in the Hub are <%= Math.round(a.billing.collectedTotal / a.revenue * 100) %>% of the money that reached the bank. The rest is other income, transfers, or payments not yet recorded.</p><% } %>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-head"><h3>Revenue sources</h3></div>
+      <% if (!a.income.length) { %><div class="empty">—</div><% } else { %>
+      <ul class="list"><% a.income.forEach(function (i) { %><li><div class="grow"><span class="title"><%= i.label %></span><div class="meter mt-8"><span style="width:<%= i.share || 0 %>%"></span></div></div><span class="nowrap"><%= h.inrShort(i.amount) %> · <%= pct(i.share) %></span></li><% }) %></ul>
+      <% } %>
+      <% if (a.capital || a.transfersOut || a.transfersIn) { %><div class="card-body small muted" style="border-top:1px solid var(--border)">Not counted as profit or loss: capital &amp; loans in <%= h.inr(a.capital) %>, transfers/drawings out <%= h.inr(a.transfersOut) %><%= a.transfersIn ? ', transfers in ' + h.inr(a.transfersIn) : '' %>.</div><% } %>
+    </section>
+
+    <% if (a.accounts.length) { %>
+    <section class="card">
+      <div class="card-head"><h3>Accounts</h3></div>
+      <ul class="list"><% a.accounts.forEach(function (ac) { %><li><div class="grow"><span class="title"><%= ac.name %></span><span class="meta">Opening <%= h.inr(ac.opening) %></span></div><b><%= h.inr(ac.closing) %></b></li><% }) %></ul>
+    </section>
+    <% } %>
+
+    <section class="card">
+      <div class="card-head"><h3>Uploads</h3><span class="muted">Data from <%= h.date(range.from) %> to <%= h.date(range.to) %></span></div>
+      <ul class="list">
+        <% imports.forEach(function (im) { %>
+        <li>
+          <div class="grow"><span class="title"><%= im.account %> · <%= im.filename || 'pasted' %></span><span class="meta"><%= im.rows_added %> new<%= im.rows_duplicate ? ', ' + im.rows_duplicate + ' duplicates skipped' : '' %> · <%= h.date(im.from_date) %> – <%= h.date(im.to_date) %> · <%= im.uploaded_by_name || '' %> <%= h.ago(im.created_at) %></span></div>
+          <form method="post" action="/admin/finance/imports/<%= im.id %>/delete" class="inline" data-confirm="Remove this upload and its <%= im.rows_added %> transactions?"><%- include('../../partials/csrf') %><button class="btn btn-ghost btn-sm" type="submit" title="Undo this upload" aria-label="Undo this upload"><%- h.icon('trash', 15) %></button></form>
+        </li>
+        <% }) %>
+      </ul>
+    </section>
+  </div>
+</div>
+<% } %>
+
+<% if (range) { %>
+<dialog class="modal" id="upload" aria-labelledby="upload-title">
+  <div class="modal-head"><h2 id="upload-title">Upload bank statement</h2><button class="icon-btn" type="button" data-close aria-label="Close"><%- h.icon('x') %></button></div>
+  <div class="modal-body"><%- include('_upload') %></div>
+</dialog>
+<% } %>
