@@ -84,6 +84,8 @@ const config = {
     sessionTime: env.LMS_SESSION_TIME || '19:00', // IST, every day
     sessionMinutes: Number(env.LMS_SESSION_MINUTES) || 60,
     hostEmail: env.LMS_HOST_EMAIL || '', // organiser; defaults to the first owner
+    // The LMS API, for pulling certificates (its verify and PDF endpoints are public).
+    apiUrl: (env.LMS_API_URL === undefined ? 'https://lms.haptags.com/hcgi/api' : env.LMS_API_URL).replace(/\/+$/, ''),
   },
 
   // Browser origins allowed to post enquiries straight to /api/v1/leads.

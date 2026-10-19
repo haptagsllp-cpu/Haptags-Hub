@@ -41,9 +41,15 @@ async function enroll(student, plan, userId) {
   const program = plan.programId ? await db('programs').where({ id: plan.programId }).first() : null;
   const programName = program ? program.name : (plan.description || 'Program fee');
   const result = await db.transaction(async (trx) => {
-    const [clientId] = await trx('clients').insert({
-      ...student, segment: 'student', program_id: program ? program.id : null, status: 'active', created_at: now, updated_at: now,
-    });
+    // plan.clientId: bill a student who is already in the Hub (e.g. added from a certificate).
+    let clientId = plan.clientId;
+    if (clientId) {
+      await trx('clients').where({ id: clientId }).update({ ...student, program_id: program ? program.id : null, updated_at: now });
+    } else {
+      [clientId] = await trx('clients').insert({
+        ...student, segment: 'student', program_id: program ? program.id : null, status: 'active', created_at: now, updated_at: now,
+      });
+    }
     const client = await trx('clients').where({ id: clientId }).first();
     const taxMode = defaultTaxMode(client, s);
     const gstRate = Number(s.edu_gst_rate) || 0;
@@ -84,7 +90,7 @@ async function enroll(student, plan, userId) {
       const inv = await db('invoices').where({ id: invoiceId }).first();
       const take = Math.min(left, Number(inv.total) - Number(inv.amount_paid));
       if (take <= 0) continue;
-      await recordPayment({ ...plan.paidNow, amount: take, invoice_id: invoiceId, recorded_by: userId }, { notify: Boolean(student.email) });
+      await recordPayment({ ...plan.paidNow, amount: take, invoice_id: invoiceId, recorded_by: userId }, { notify: plan.notify !== false && Boolean(student.email) });
       left -= take;
     }
   }

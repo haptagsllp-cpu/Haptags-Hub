@@ -11,6 +11,7 @@
     <div class="field"><label for="program_id">Program</label><select id="program_id" name="program_id"><option value="">—</option><% programs.forEach(function (p) { %><option value="<%= p.id %>" <%= h.selected(form.program_id, p.id) %>><%= p.name %></option><% }) %></select></div>
     <div class="field"><label for="batch">Batch</label><input id="batch" name="batch" type="text" value="<%= form.batch || '' %>"></div>
     <div class="field"><label for="start_date">Start date</label><input id="start_date" name="start_date" type="date" value="<%= form.start_date ? String(form.start_date).slice(0, 10) : '' %>"></div>
+    <div class="field"><label for="end_date">End date</label><input id="end_date" name="end_date" type="date" value="<%= form.end_date ? String(form.end_date).slice(0, 10) : '' %>"></div>
     <div class="field"><label for="state">State</label><select id="state" name="state"><% states.forEach(function (st) { %><option <%= h.selected(form.state, st[1]) %>><%= st[1] %></option><% }) %></select></div>
     <div class="field"><label for="status">Status</label><select id="status" name="status"><option value="active" <%= h.selected(form.status, 'active') %>>Active</option><option value="inactive" <%= h.selected(form.status, 'inactive') %>>Completed / left</option></select></div>
     <div class="field full"><label for="notes">Notes</label><textarea id="notes" name="notes" rows="3"><%= form.notes || '' %></textarea></div>

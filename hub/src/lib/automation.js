@@ -1,5 +1,6 @@
 'use strict';
 
+const config = require('../config');
 const { db } = require('../db');
 const { getSettings, setSettings } = require('./settings');
 const { todayIST, addDays, addMonths, nowSql, daysBetween } = require('./util');
@@ -77,6 +78,17 @@ async function sendReminders(today) {
   return sent;
 }
 
+/** New certificates from lms.haptags.com. A network problem is logged and retried next hour. */
+async function syncCertificates() {
+  if (!config.lms.apiUrl) return 0;
+  try {
+    return (await require('./certificates').syncFromLms()).added;
+  } catch (err) {
+    console.error('[automation] LMS certificate sync:', err.message);
+    return 0;
+  }
+}
+
 /** Idempotent: safe to run every hour and on demand. */
 async function runAutomations() {
   if (running) return { skipped: true };
@@ -89,6 +101,7 @@ async function runAutomations() {
       quotesExpired: await expireQuotes(today),
       retainerInvoices: await billRetainers(today),
       reminders: s.auto_reminders === '1' ? await sendReminders(today) : 0,
+      lmsCertificates: await syncCertificates(),
     };
     await setSettings({ automation_last_run: nowSql() });
     return result;

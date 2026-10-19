@@ -1,0 +1,33 @@
+<%- include('_nav') %>
+<div class="row-between mb-16">
+  <p class="muted mb-0">Certificates issued on lms.haptags.com are copied here with their PDF and filed under the student. You can also upload one on a student’s page.</p>
+  <% if (lmsEnabled) { %>
+  <form method="post" action="/admin/education/certificates/sync" class="inline">
+    <%- include('../../partials/csrf') %>
+    <button class="btn" type="submit"><%- h.icon('download', 16) %> Sync from LMS</button>
+  </form>
+  <% } %>
+</div>
+<div class="card">
+  <% if (!rows.length) { %><div class="empty"><%- h.icon('education', 30) %><b>No certificates yet</b><%= lmsEnabled ? 'Click “Sync from LMS” to bring in the certificates already issued there.' : 'Upload certificates from a student’s page.' %></div><% } else { %>
+  <div class="table-wrap"><table class="table">
+    <thead><tr><th>Certificate</th><th>Student</th><th>Programme</th><th>Period</th><th>Issued</th><th>Grade</th><th></th></tr></thead>
+    <tbody>
+      <% rows.forEach(function (c) { %>
+      <tr>
+        <td><b class="mono"><%= c.certificate_no %></b><span class="sub"><%= c.source === 'lms' ? 'From LMS' : 'Uploaded' %></span></td>
+        <td><% if (c.client_id) { %><a class="strong" href="/admin/education/students/<%= c.client_id %>"><%= c.student_name || c.recipient_name %></a><% } else { %><%= c.recipient_name %><% } %><% if (c.college) { %><span class="sub"><%= c.college %></span><% } %></td>
+        <td><%= c.programme || '—' %><% if (c.duration) { %><span class="sub"><%= c.duration %></span><% } %></td>
+        <td class="nowrap small"><%= c.start_date ? h.date(c.start_date) : '' %><%= c.end_date ? ' – ' + h.date(c.end_date) : '' %></td>
+        <td class="nowrap"><%= c.issued_on ? h.date(c.issued_on) : '—' %></td>
+        <td><%= c.grade || '—' %></td>
+        <td class="nowrap">
+          <% if (c.file_id) { %><a class="btn btn-ghost btn-sm" href="/admin/education/certificates/<%= c.id %>/pdf" target="_blank" rel="noopener" title="View PDF"><%- h.icon('download', 15) %> PDF</a><% } %>
+          <% if (c.verify_url) { %><a class="btn btn-ghost btn-sm" href="<%= c.verify_url %>" target="_blank" rel="noopener" title="Public verification page"><%- h.icon('external', 15) %></a><% } %>
+        </td>
+      </tr>
+      <% }) %>
+    </tbody>
+  </table></div>
+  <% } %>
+</div>

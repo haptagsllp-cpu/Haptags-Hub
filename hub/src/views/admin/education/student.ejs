@@ -17,7 +17,7 @@
 <div class="stats">
   <div class="stat"><div class="label">Total fee</div><div class="value"><%= h.inr(totals.billed) %></div></div>
   <div class="stat"><div class="label">Paid</div><div class="value"><%= h.inr(totals.paid) %></div></div>
-  <div class="stat <%= totals.due > 0 ? '' : '' %>"><div class="label">Balance due</div><div class="value <%= totals.due > 0 ? 'down' : 'up' %>"><%= totals.due > 0 ? h.inr(totals.due) : 'Fully paid' %></div><% if (next) { %><div class="delta">Next due <%= h.date(next.due_date) %></div><% } %></div>
+  <div class="stat"><div class="label">Balance due</div><div class="value <%= totals.due > 0 ? 'down' : totals.billed > 0 ? 'up' : 'muted' %>"><%= totals.due > 0 ? h.inr(totals.due) : totals.billed > 0 ? 'Fully paid' : 'No fee billed yet' %></div><% if (next) { %><div class="delta">Next due <%= h.date(next.due_date) %></div><% } %></div>
 </div>
 
 <div class="split">
@@ -62,6 +62,45 @@
       </ul><% } %>
     </section>
 
+    <section class="card" id="certificates">
+      <div class="card-head"><h3>Certificates</h3><span class="muted"><%= certificates.length %></span></div>
+      <% if (certificates.length) { %>
+      <ul class="list">
+        <% certificates.forEach(function (c) { %>
+        <li>
+          <div class="grow">
+            <span class="title"><span class="mono"><%= c.certificate_no %></span> · <%= c.programme || 'Certificate' %></span>
+            <span class="meta"><%= c.issued_on ? 'Issued ' + h.date(c.issued_on) : '' %><%= c.grade ? ' · Grade ' + c.grade : '' %><%= c.duration ? ' · ' + c.duration : '' %> · <%= c.source === 'lms' ? 'from LMS' : 'uploaded' %></span>
+          </div>
+          <% if (c.file_id) { %><a class="btn btn-ghost btn-sm" href="/admin/education/certificates/<%= c.id %>/pdf" target="_blank" rel="noopener"><%- h.icon('download', 15) %> PDF</a><% } %>
+          <% if (c.verify_url) { %><a class="btn btn-ghost btn-sm" href="<%= c.verify_url %>" target="_blank" rel="noopener" title="Public verification page"><%- h.icon('external', 15) %></a><% } %>
+          <% if (isAdmin) { %><form method="post" action="/admin/education/certificates/<%= c.id %>/delete" class="inline" data-confirm="Remove <%= c.certificate_no %> from the Hub? It stays on the LMS."><%- include('../../partials/csrf') %><button class="btn btn-ghost btn-sm" type="submit" aria-label="Remove certificate"><%- h.icon('trash', 15) %></button></form><% } %>
+        </li>
+        <% }) %>
+      </ul>
+      <% } %>
+      <div class="card-body"<%- certificates.length ? ' style="border-top:1px solid var(--border)"' : '' %>>
+        <% if (lmsEnabled) { %>
+        <form method="post" action="/admin/education/students/<%= st.id %>/certificates" class="row mb-16">
+          <%- include('../../partials/csrf') %>
+          <input type="text" name="certificate_no" placeholder="LMS certificate ID, e.g. HAP-INT-001" class="mono" aria-label="LMS certificate ID" style="max-width:280px">
+          <button class="btn btn-ghost btn-sm" type="submit">Fetch from LMS</button>
+        </form>
+        <% } %>
+        <details>
+          <summary class="small muted" style="cursor:pointer">Upload a certificate PDF instead…</summary>
+          <form class="form-grid mt-8" data-cert-upload="/admin/education/students/<%= st.id %>/certificates">
+            <div class="field"><label for="cu-no">Certificate number</label><input id="cu-no" name="certificate_no" type="text" class="mono" required></div>
+            <div class="field"><label for="cu-prog">Programme</label><input id="cu-prog" name="programme" type="text" value="<%= st.program_name || '' %>"></div>
+            <div class="field"><label for="cu-issued">Issued on</label><input id="cu-issued" name="issued_on" type="date"></div>
+            <div class="field"><label for="cu-grade">Grade</label><input id="cu-grade" name="grade" type="text"></div>
+            <div class="field full"><label for="cu-file">PDF or image</label><input id="cu-file" type="file" accept="application/pdf,image/png,image/jpeg" data-file required></div>
+            <div class="full"><div class="error mb-8" data-upload-error role="alert"></div><button class="btn btn-ghost btn-sm" type="submit"><%- h.icon('upload', 15) %> Upload certificate</button></div>
+          </form>
+        </details>
+      </div>
+    </section>
+
     <form method="post" action="/admin/education/students/<%= st.id %>/invoice" class="card card-pad">
       <%- include('../../partials/csrf') %>
       <h3>Add another fee</h3>
@@ -88,7 +127,7 @@
           <dt>Course</dt><dd><%= st.course || '—' %></dd>
           <dt>Program</dt><dd><%= st.program_name || '—' %></dd>
           <dt>Batch</dt><dd><%= st.batch || '—' %></dd>
-          <dt>Starts</dt><dd><%= st.start_date ? h.date(st.start_date) : '—' %></dd>
+          <dt>Course dates</dt><dd><%= st.start_date ? h.date(st.start_date) : '—' %><%= st.end_date ? ' – ' + h.date(st.end_date) : '' %></dd>
           <dt>State</dt><dd><%= st.state || '—' %></dd>
           <dt>Enrolled</dt><dd><%= h.dateTime(st.created_at) %></dd>
         </dl>

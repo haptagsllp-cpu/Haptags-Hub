@@ -1,0 +1,57 @@
+<div class="crumbs"><a href="/admin/education">Education</a> / <a href="/admin/education/students">Students</a> / Import</div>
+<div class="page-head">
+  <div><h1>Import past students</h1><div class="sub">Add a whole batch at once: each row creates the student, their invoice and payment, and attaches their LMS certificate.</div></div>
+  <div class="actions"><a class="btn btn-ghost" href="/admin/education/import-template.csv"><%- h.icon('download', 16) %> Download the template</a></div>
+</div>
+
+<% if (report) { const ok = report.filter(function (r) { return r.status !== 'error'; }).length; %>
+<section class="card mb-16">
+  <div class="card-head"><h3>Imported <%= ok %> of <%= report.length %> rows</h3><a class="small" href="/admin/education/students">Go to students →</a></div>
+  <div class="table-wrap"><table class="table">
+    <thead><tr><th>Row</th><th>Student</th><th>Result</th><th>Details</th></tr></thead>
+    <tbody>
+      <% report.forEach(function (r) { %>
+      <tr>
+        <td class="muted"><%= r.line %></td>
+        <td><% if (r.studentId) { %><a class="strong" href="/admin/education/students/<%= r.studentId %>"><%= r.name %></a><% } else { %><%= r.name %><% } %></td>
+        <td><%- r.status === 'error' ? h.badge('overdue', 'Error') : r.status === 'created' ? h.badge('paid', 'Added') : h.badge('sent', 'Updated') %></td>
+        <td class="small"><%= r.notes.join(' · ') %></td>
+      </tr>
+      <% }) %>
+    </tbody>
+  </table></div>
+</section>
+<% } %>
+
+<div class="split">
+  <section class="card card-pad">
+    <% if (isAdmin) { %>
+    <form method="post" action="/admin/education/import" data-csv-upload data-target="/admin/education/import">
+      <%- include('../../partials/csrf') %>
+      <div class="field">
+        <label for="imp-file">Students CSV</label>
+        <input id="imp-file" type="file" accept=".csv,text/csv" data-file>
+        <div class="hint">Fill in the template in Excel or Google Sheets, then save or download it as CSV.</div>
+      </div>
+      <details class="mb-16"><summary class="small muted">Or paste the CSV text</summary><textarea name="csv" rows="6" class="mt-8"></textarea></details>
+      <div class="error mb-8" data-upload-error role="alert"></div>
+      <button class="btn" type="submit"><%- h.icon('upload', 16) %> Import students</button>
+    </form>
+    <% } else { %>
+    <p class="mb-0">Only owners and admins can import students.</p>
+    <% } %>
+  </section>
+  <section class="card card-pad small">
+    <h3>Columns</h3>
+    <p class="muted mt-0">Only <b>Name</b> is required. Leave anything you don’t have blank.</p>
+    <ul style="padding-left:18px;margin:0;line-height:1.8">
+      <li><b>Name, Phone, Email, College, Course / year, State</b>: the student</li>
+      <li><b>Program, Batch, Start date, End date</b>: the internship or course (new programs are added automatically)</li>
+      <li><b>Fee, Discount</b>: creates their invoice</li>
+      <li><b>Paid, Paid on, Method, Reference</b>: records the payment</li>
+      <li><b>Invoice number, Invoice date</b>: your own number and date (blank = next automatic number)</li>
+      <li><b>Certificate ID</b>: e.g. HAP-INT-001, fetched from the LMS with its PDF</li>
+    </ul>
+    <p class="muted mb-0 mt-16">Dates can be 17/08/2026, 17-08-2026 or 2026-08-17. Importing the same file again won’t create duplicates: students are matched by email, phone or name, and anyone already invoiced isn’t invoiced again. No emails are sent to students during an import.</p>
+  </section>
+</div>

@@ -19,6 +19,7 @@ Object.assign(process.env, {
   RAZORPAY_WEBHOOK_SECRET: 'test_webhook_secret',
   ADMIN_EMAIL: 'owner@test.local',
   ADMIN_PASSWORD: 'owner-password-1',
+  LMS_API_URL: process.env.TEST_LMS_API_URL || '', // tests never call the real LMS
   NODE_ENV: 'test',
   LMS_KEY_SHA256: crypto.createHash('sha256').update('test-lms-key').digest('hex'),
 });
@@ -587,6 +588,94 @@ test('finance: bank statement import, dedupe, categories, matching and the CEO v
   const staff = await staffUser('Sam Staff', 'sam@test.local');
   assert.equal((await staff.b.get('/admin/finance')).status, 403);
   assert.equal((await staff.b.get('/admin/education')).status, 200, 'the team can still enrol students');
+});
+
+test('certificates from the LMS, CSV import of past students, and uploads', async () => {
+  // A stand-in for lms.haptags.com's public certificate API.
+  const http = require('http');
+  const certsOnLms = {
+    'HAP-INT-001': { id: 'lms001', recipient_name: 'Divya N', college_organization: 'RVCE', programme_title: 'Web dev internship' },
+    'HAP-INT-002': { id: 'lms002', recipient_name: 'Fresh Intern', college_organization: 'PESU', programme_title: 'Data Science Internship' },
+    'HAP-INT-003': { id: 'lms003', recipient_name: 'Csv Student', college_organization: 'BMSCE', programme_title: 'Web dev internship' },
+  };
+  const lms = http.createServer((req, res) => {
+    const send = (code, body, type = 'application/json') => { res.writeHead(code, { 'content-type': type }); res.end(typeof body === 'string' ? body : JSON.stringify(body)); };
+    if (req.url === '/certificates/settings') return send(200, { id_prefix: 'HAP-INT-', next_number: 3 });
+    const v = req.url.match(/^\/certificates\/verify\/(.+)$/);
+    if (v) {
+      const c = certsOnLms[decodeURIComponent(v[1])];
+      return c ? send(200, { verified: true, certificate: { ...c, certificate_id: decodeURIComponent(v[1]), start_date: '2026-08-17 00:00:00.000Z', end_date: '2026-10-17 00:00:00.000Z', issued_on: '2026-10-17 00:00:00.000Z', duration: '2 Months', grade: 'A', verification_url_base: 'https://lms.example/verify?id=' } }) : send(404, { verified: false });
+    }
+    if (/\/download\?format=pdf$/.test(req.url)) return send(200, '%PDF-1.4 fake certificate', 'application/pdf');
+    return send(404, {});
+  });
+  await new Promise((r) => lms.listen(0, r));
+  const config = require('../src/config');
+  config.lms.apiUrl = `http://127.0.0.1:${lms.address().port}`;
+  try {
+    const owner = new Browser();
+    await owner.login('owner@test.local', 'owner-password-1');
+
+    // Sync: 001 matches the existing student by name, 002 creates a new one.
+    await owner.get('/admin/education/certificates');
+    await owner.post('/admin/education/certificates/sync', {});
+    const divya = await db('clients').where({ name: 'Divya N', segment: 'student' }).first();
+    const c1 = await db('certificates').where({ certificate_no: 'HAP-INT-001' }).first();
+    assert.equal(c1.client_id, divya.id);
+    assert.equal(c1.grade, 'A');
+    assert.equal(c1.issued_on.slice(0, 10), '2026-10-17');
+    const fresh = await db('clients').where({ name: 'Fresh Intern' }).first();
+    assert.equal(fresh.segment, 'student');
+    assert.equal(fresh.end_date.slice(0, 10), '2026-10-17');
+    const pdf = await fetch(`${base}/admin/education/certificates/${c1.id}/pdf`, { headers: { cookie: owner.header() } });
+    assert.equal(pdf.headers.get('content-type'), 'application/pdf');
+    assert.equal(await pdf.text(), '%PDF-1.4 fake certificate');
+    await owner.post('/admin/education/certificates/sync', {});
+    assert.equal(Number((await db('certificates').count({ n: '*' }).first()).n), 2, 'syncing again adds nothing');
+
+    // CSV import: a new student (with invoice, payment and certificate) and Divya (already invoiced).
+    const mailsBefore = Number((await db('email_log').count({ n: '*' }).first()).n);
+    const csv = [
+      'Name,Phone,Email,College,Course / year,Program,Batch,Start date,End date,Fee,Discount,Paid,Paid on,Method,Reference,Invoice number,Invoice date,Certificate ID',
+      'Csv Student,9811111111,csv@student.test,BMSCE,B.E. ISE,Web dev internship,Aug 2026,17/08/2026,17/10/2026,999,,999,18/08/2026,GPay,UTR123,HTE/25-26/0099,17/08/2026,HAP-INT-003',
+      'Divya N,,,,,,,,,11800,,,,,,,,',
+      ',,,,,,,,,,,,,,,,,',
+    ].join('\n');
+    await owner.get('/admin/education/import');
+    const res = await owner.post('/admin/education/import', { csv });
+    assert.equal(res.status, 200);
+    assert.match(res.text, /Imported 2 of 2 rows/);
+    assert.match(res.text, /already invoiced/);
+    const st = await db('clients').where({ email: 'csv@student.test' }).first();
+    const inv = await db('invoices').where({ client_id: st.id }).first();
+    assert.equal(inv.number, 'HTE/25-26/0099');
+    assert.equal(inv.issue_date.slice(0, 10), '2026-08-17');
+    assert.equal(inv.status, 'paid');
+    const pay = await db('payments').where({ invoice_id: inv.id }).first();
+    assert.equal(pay.method, 'upi');
+    assert.equal(pay.paid_on.slice(0, 10), '2026-08-18');
+    assert.equal((await db('certificates').where({ certificate_no: 'HAP-INT-003' }).first()).client_id, st.id);
+    assert.equal(Number((await db('email_log').where({ to_email: 'csv@student.test' }).count({ n: '*' }).first()).n), 0, 'imports send no emails');
+    assert.ok(Number((await db('email_log').count({ n: '*' }).first()).n) >= mailsBefore);
+    // Re-importing doesn't duplicate.
+    await owner.post('/admin/education/import', { csv });
+    assert.equal(Number((await db('clients').where({ email: 'csv@student.test' }).count({ n: '*' }).first()).n), 1);
+    assert.equal(Number((await db('invoices').where({ client_id: st.id }).count({ n: '*' }).first()).n), 1);
+
+    // Upload a certificate by hand.
+    await owner.get(`/admin/education/students/${fresh.id}`);
+    const up = await fetch(`${base}/admin/education/students/${fresh.id}/certificates?certificate_no=MANUAL-7&programme=Data%20Science&issued_on=2026-09-01`, {
+      method: 'POST', body: Buffer.from('%PDF-1.4 manual'),
+      headers: { cookie: owner.header(), 'content-type': 'application/pdf', accept: 'application/json', 'x-csrf-token': owner.csrf },
+    });
+    assert.equal(up.status, 200);
+    const manual = await db('certificates').where({ certificate_no: 'MANUAL-7' }).first();
+    assert.equal(manual.source, 'upload');
+    assert.match((await owner.get(`/admin/education/students/${fresh.id}`)).text, /MANUAL-7/);
+  } finally {
+    config.lms.apiUrl = '';
+    lms.close();
+  }
 });
 
 test('partners: revenue credited to the partner who brought each client in', async () => {

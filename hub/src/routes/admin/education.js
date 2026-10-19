@@ -11,10 +11,13 @@ const {
   invoiceUrl, createInvoice, issueInvoice, defaultTaxMode, sendInvoiceEmail, cleanNumber, numberTaken, previewNumber, deleteInvoices,
 } = require('../../lib/billing');
 const { requireAdmin } = require('../../lib/auth');
+const certs = require('../../lib/certificates');
+const { importStudents, TEMPLATE } = require('../../lib/student-import');
+const config = require('../../config');
 const { getActivities, logActivity } = require('../../lib/activity');
 const { periodFrom, monthsBetween, monthLabel, PRESETS } = require('../../lib/period');
 const { nowSql, todayIST, addDays, addMonths, str, int, isEmail, isDate } = require('../../lib/util');
-const { paginate, idParam } = require('./_helpers');
+const { paginate, idParam, back } = require('./_helpers');
 
 const router = express.Router();
 
@@ -120,6 +123,7 @@ function readStudent(body, s) {
     course: str(body.course, 120),
     batch: str(body.batch, 60),
     start_date: isDate(body.start_date) ? body.start_date : null,
+    end_date: isDate(body.end_date) ? body.end_date : null,
     city: str(body.city, 100),
     state: str(body.state, 100) || s.state,
     country: 'India',
@@ -207,17 +211,19 @@ async function loadStudent(req, res, next) {
 
 router.get('/students/:id', loadStudent, async (req, res) => {
   const st = req.student;
-  const [invoices, payments, activities] = await Promise.all([
+  const [invoices, payments, activities, certificates] = await Promise.all([
     db('invoices').where({ client_id: st.id }).orderBy('due_date').orderBy('id'),
     db('payments as p').join('invoices as i', 'i.id', 'p.invoice_id').where('p.client_id', st.id).orderBy('p.paid_on', 'desc')
       .select('p.*', 'i.number as invoice_number'),
     getActivities('client', st.id),
+    db('certificates').where({ client_id: st.id }).orderBy('issued_on', 'desc'),
   ]);
   const live = invoices.filter((i) => !['draft', 'void'].includes(i.status));
   const totals = live.reduce((t, i) => ({ billed: t.billed + Number(i.total), paid: t.paid + Number(i.amount_paid) }), { billed: 0, paid: 0 });
   const next = live.find((i) => Number(i.total) > Number(i.amount_paid));
   res.render('admin/education/student', {
-    title: st.name, tab: 'students', st, invoices: invoices.map((i) => ({ ...i, link: invoiceUrl(i) })), payments, activities,
+    title: st.name, tab: 'students', st, invoices: invoices.map((i) => ({ ...i, link: invoiceUrl(i) })), payments, activities, certificates,
+    lmsEnabled: Boolean(config.lms.apiUrl),
     totals: { ...totals, due: totals.billed - totals.paid }, next: next ? { ...next, link: invoiceUrl(next) } : null,
     settings: await getSettings(), programs: await programs(),
     nextNumber: await previewNumber((await getSettings()).edu_invoice_prefix, todayIST()),
@@ -288,6 +294,105 @@ router.post('/students/:id/invoice', loadStudent, async (req, res) => {
   if (req.body.send_email && st.email) await sendInvoiceEmail(id, req.user.id);
   req.flash('success', 'Invoice created.');
   res.redirect(`/admin/education/students/${st.id}`);
+});
+
+// ---------------- Certificates ----------------
+router.get('/certificates', async (req, res) => {
+  const rows = await db('certificates as ce').leftJoin('clients as c', 'c.id', 'ce.client_id')
+    .orderBy('ce.issued_on', 'desc').orderBy('ce.id', 'desc')
+    .select('ce.*', 'c.name as student_name');
+  res.render('admin/education/certificates', { title: 'Certificates', tab: 'certificates', rows, lmsEnabled: Boolean(config.lms.apiUrl), lmsUrl: config.lms.apiUrl });
+});
+
+// Pull every certificate issued on lms.haptags.com that the Hub doesn't have yet.
+router.post('/certificates/sync', async (req, res) => {
+  try {
+    const r = await certs.syncFromLms({ userId: req.user.id });
+    const parts = [`${r.added} new certificate${r.added === 1 ? '' : 's'} from the LMS`];
+    if (r.studentsCreated) parts.push(`${r.studentsCreated} student${r.studentsCreated === 1 ? '' : 's'} added for them`);
+    if (r.errors.length) parts.push(`problems: ${r.errors.join('; ')}`);
+    req.flash(r.errors.length ? 'info' : 'success', `${parts.join(', ')}.`);
+  } catch (err) {
+    req.flash('error', `Couldn’t reach the LMS: ${err.message}`);
+  }
+  res.redirect('/admin/education/certificates');
+});
+
+router.get('/certificates/:id/pdf', async (req, res, next) => {
+  const cert = await db('certificates').where({ id: idParam(req) }).first();
+  const file = cert && cert.file_id ? await db('files').where({ id: cert.file_id }).first() : null;
+  if (!file) return next();
+  const name = `certificate-${cert.certificate_no}.pdf`.replace(/[^A-Za-z0-9._-]/g, '_');
+  res.set({
+    'Content-Type': file.mime, 'Content-Length': file.size, 'Cache-Control': 'private, max-age=3600',
+    'Content-Disposition': `${req.query.download ? 'attachment' : 'inline'}; filename="${name}"`,
+  });
+  res.end(Buffer.from(file.data));
+});
+
+router.post('/certificates/:id/delete', requireAdmin, async (req, res) => {
+  const cert = await db('certificates').where({ id: idParam(req) }).first();
+  if (cert) {
+    await db('certificates').where({ id: cert.id }).del();
+    if (cert.file_id) await db('files').where({ id: cert.file_id }).del();
+    req.flash('success', `Certificate ${cert.certificate_no} removed from the Hub (it stays on the LMS).`);
+  }
+  res.redirect(back(req, '/admin/education/certificates'));
+});
+
+// Attach a certificate to a student: by LMS number, or by uploading the PDF.
+router.post('/students/:id/certificates', loadStudent, express.raw({ type: ['application/pdf', 'image/*', 'application/octet-stream'], limit: '8mb' }), async (req, res) => {
+  const st = req.student;
+  const fromUpload = Buffer.isBuffer(req.body);
+  const q = fromUpload ? req.query : req.body;
+  const number = str(q.certificate_no, 60);
+  const done = (type, msg) => {
+    req.flash(type, msg);
+    if (req.accepts(['html', 'json']) === 'json') return res.status(type === 'error' ? 422 : 200).json({ ok: type !== 'error', message: msg });
+    return res.redirect(`/admin/education/students/${st.id}`);
+  };
+  if (!number) return done('error', 'Enter the certificate number.');
+  if (!fromUpload) {
+    try {
+      await certs.importFromLms(number, { clientId: st.id, userId: req.user.id });
+      return done('success', `Certificate ${number} fetched from the LMS and stored.`);
+    } catch (err) {
+      return done('error', err.message);
+    }
+  }
+  if (await db('certificates').where({ certificate_no: number }).first()) return done('error', `${number} is already in the Hub.`);
+  if (!req.body.length) return done('error', 'The file is empty.');
+  await certs.addUploaded(st.id, {
+    certificate_no: number, recipient_name: st.name, college: st.college, programme: str(q.programme, 200) || st.program_name || null,
+    start_date: isDate(q.start_date) ? q.start_date : st.start_date, end_date: isDate(q.end_date) ? q.end_date : st.end_date,
+    issued_on: isDate(q.issued_on) ? q.issued_on : todayIST(), grade: str(q.grade, 100),
+  }, { name: `certificate-${number}.pdf`, mime: req.get('content-type') || 'application/pdf', data: req.body }, req.user.id);
+  return done('success', `Certificate ${number} uploaded.`);
+});
+
+// ---------------- Import past students ----------------
+router.get('/import', async (req, res) => {
+  res.render('admin/education/import', { title: 'Import students', tab: 'students', report: null });
+});
+
+router.get('/import-template.csv', (req, res) => {
+  res.set({ 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': 'attachment; filename="haptags-students-template.csv"' });
+  res.send(`\uFEFF${TEMPLATE}`);
+});
+
+router.post('/import', requireAdmin, express.raw({ type: ['text/*', 'application/octet-stream', 'application/vnd.ms-excel'], limit: '2mb' }), async (req, res) => {
+  const text = Buffer.isBuffer(req.body) ? req.body.toString('utf8') : String((req.body && req.body.csv) || '');
+  const s = await getSettings();
+  try {
+    const report = await importStudents(text, { userId: req.user.id, state: s.state });
+    console.log(`[education] ${req.user.email} imported ${report.length} student rows`);
+    if (req.accepts(['html', 'json']) === 'json') return res.json({ ok: true, report });
+    return res.render('admin/education/import', { title: 'Import students', tab: 'students', report });
+  } catch (err) {
+    if (req.accepts(['html', 'json']) === 'json') return res.status(422).json({ error: err.message });
+    req.flash('error', err.message);
+    return res.redirect('/admin/education/import');
+  }
 });
 
 // ---------------- Programs ----------------

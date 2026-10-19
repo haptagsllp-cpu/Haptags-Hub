@@ -101,6 +101,39 @@
     });
   });
 
+  // Student CSV import: read the chosen file into the form, then submit it normally.
+  $$('[data-csv-upload]').forEach(function (form) {
+    form.addEventListener('submit', function (e) {
+      var file = $('[data-file]', form).files[0];
+      if (!file || form.getAttribute('data-ready')) return;
+      e.preventDefault();
+      if (file.size > 2 * 1024 * 1024) { $('[data-upload-error]', form).textContent = 'That file is over 2 MB.'; return; }
+      var reader = new FileReader();
+      reader.onload = function () { $('[name=csv]', form).value = reader.result; form.setAttribute('data-ready', '1'); form.submit(); };
+      reader.readAsText(file);
+    });
+  });
+
+  // Certificate upload on a student's page: the file goes as-is, the fields in the query string.
+  $$('[data-cert-upload]').forEach(function (form) {
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var file = $('[data-file]', form).files[0];
+      var err = $('[data-upload-error]', form);
+      err.textContent = '';
+      if (!file) { err.textContent = 'Choose the certificate file.'; return; }
+      if (file.size > 8 * 1024 * 1024) { err.textContent = 'That file is over 8 MB.'; return; }
+      var q = new URLSearchParams();
+      ['certificate_no', 'programme', 'issued_on', 'grade'].forEach(function (n) { var el = $('[name=' + n + ']', form); if (el && el.value) q.set(n, el.value); });
+      fetch(form.getAttribute('data-cert-upload') + '?' + q.toString(), {
+        method: 'POST', credentials: 'same-origin', body: file,
+        headers: { 'content-type': file.type || 'application/pdf', accept: 'application/json', 'x-csrf-token': $('meta[name=csrf-token]').content },
+      }).then(function (r) { return r.json(); })
+        .then(function (j) { if (!j.ok) throw new Error(j.message || 'Upload failed'); location.reload(); })
+        .catch(function (x) { err.textContent = x.message; });
+    });
+  });
+
   // Bank transactions: changing a category saves at once.
   document.addEventListener('change', function (e) {
     var sel = e.target.closest('[data-txn-category]');
